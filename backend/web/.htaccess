@@ -1,0 +1,8 @@
+RewriteEngine on
+
+# Kung may totoong file o folder, huwag itong i-rewrite
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Kung walang ganoong file, ipasa ang request sa index.php
+RewriteRule . index.php
