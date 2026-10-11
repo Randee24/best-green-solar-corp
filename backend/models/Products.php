@@ -86,31 +86,77 @@ class Products extends \yii\db\ActiveRecord
 	 *
 	 * @return float
 	 */
+	
 	public function getAvailableQty(): float
 	{
 		$db = static::getDb();
 
-		$received = (float) (new \yii\db\Query())
+		$latestPeriod = InventoryPeriods::find()
+			->where(['status' => 'closed'])
+			->orderBy([
+				'year' => SORT_DESC,
+				'month' => SORT_DESC,
+			])
+			->one();
+
+		if ($latestPeriod === null)
+		{
+			return $this->getAvailableQtyFromTransactions();
+		}
+
+		$balance = (new \yii\db\Query())
+			->from('inventory_period_product_balances')
+			->where([
+				'inventory_period_id' => $latestPeriod->id,
+				'product_id' => $this->id,
+			])
+			->one($db);
+
+		if ($balance === false)
+		{
+			throw new \RuntimeException(
+				'Missing closing balance for product #' . $this->id .
+				' in inventory period #' . $latestPeriod->id
+			);
+		}
+
+		$cutoff = date(
+			'Y-m-d',
+			strtotime(sprintf(
+				'%04d-%02d-01 +1 month',
+				$latestPeriod->year,
+				$latestPeriod->month
+			))
+		);
+
+		$totalIn = (new \yii\db\Query())
 			->from(['ii' => 'inventory_in_items'])
 			->innerJoin(['i' => 'inventory_ins'],'i.id = ii.inventory_in_id')
 			->where([
 				'ii.product_id' => $this->id,
 				'i.status' => 'posted',
 			])
+			->andWhere(['>=','i.transaction_date',$cutoff])
 			->sum('ii.qty',$db);
 
-		$issued = (float) (new \yii\db\Query())
-			->from(['a' => 'inventory_out_item_allocations'])
-			->innerJoin(['oi' => 'inventory_out_items'],'oi.id = a.inventory_out_item_id')
+		$totalOut = (new \yii\db\Query())
+			->from(['oi' => 'inventory_out_items'])
 			->innerJoin(['o' => 'inventory_outs'],'o.id = oi.inventory_out_id')
 			->where([
 				'oi.product_id' => $this->id,
 				'o.status' => 'posted',
 			])
-			->sum('a.qty',$db);
+			->andWhere(['>=','o.transaction_date',$cutoff])
+			->sum('oi.qty',$db);
 
-		return $received - $issued;
+		return round(
+			(float) $balance['closing_qty']
+			+ (float) $totalIn
+			- (float) $totalOut,
+			3
+		);
 	}
+
 	
 	public static function getProductsWithStock(): array
 	{

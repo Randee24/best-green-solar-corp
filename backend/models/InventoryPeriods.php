@@ -207,4 +207,377 @@ class InventoryPeriods extends \yii\db\ActiveRecord
 
 		return $period;
 	}
+	
+	
+	public static function createCurrentMonth(): array
+	{
+		$year = (int) date('Y');
+		$month = (int) date('n');
+
+		$db = static::getDb();
+		$transaction = $db->beginTransaction();
+
+		try
+		{
+			$existing = static::find()
+				->where([
+					'year' => $year,
+					'month' => $month,
+				])
+				->one();
+
+			if ($existing !== null)
+			{
+				$transaction->commit();
+
+				return [
+					'success' => false,
+					'message' => 'The inventory period for this month already exists.',
+					'id' => $existing->id,
+				];
+			}
+
+			$model = new static();
+			$model->year = $year;
+			$model->month = $month;
+			$model->status = 'open';
+
+			if (!$model->save())
+			{
+				throw new \RuntimeException(
+					implode(' ',array_values($model->getFirstErrors()))
+				);
+			}
+
+			$transaction->commit();
+
+			return [
+				'success' => true,
+				'message' => 'Inventory period for ' .
+					date('F Y') . ' created successfully.',
+				'id' => $model->id,
+			];
+		}
+		catch (\yii\db\IntegrityException $e)
+		{
+			$transaction->rollBack();
+
+			return [
+				'success' => false,
+				'message' => 'The inventory period already exists or could not be created.',
+				'id' => null,
+			];
+		}
+		catch (\Throwable $e)
+		{
+			$transaction->rollBack();
+			Yii::error($e,__METHOD__);
+
+			return [
+				'success' => false,
+				'message' => 'Unable to create the inventory period.',
+				'id' => null,
+			];
+		}
+	}
+	
+	public static function ensureCurrentMonth(): self
+	{
+		$year = (int) date('Y');
+		$month = (int) date('n');
+
+		$period = static::findOne([
+			'year' => $year,
+			'month' => $month,
+		]);
+
+		if ($period !== null)
+		{
+			return $period;
+		}
+
+		$period = new static();
+		$period->year = $year;
+		$period->month = $month;
+		$period->status = 'open';
+
+		if (!$period->save())
+		{
+			// Another request may have created it concurrently.
+			$existing = static::findOne([
+				'year' => $year,
+				'month' => $month,
+			]);
+
+			if ($existing !== null)
+			{
+				return $existing;
+			}
+
+			throw new \RuntimeException(
+				'Unable to create the current inventory period: ' .
+				implode(' ',array_values($period->getFirstErrors()))
+			);
+		}
+
+		return $period;
+	}
+	
+	
+	public function closePeriod(int $userId,string $pin): bool
+	{
+		$db = static::getDb();
+		$transaction = null;
+
+		try
+		{
+			$user = \common\models\User::findOne($userId);
+
+			if ($user === null || !$user->verifyPinCode($pin))
+			{
+				throw new \RuntimeException('Invalid PIN code.');
+			}
+
+			$transaction = $db->beginTransaction();
+			$this->generateProductBalances();
+			$row = $db->createCommand(
+				'SELECT *
+				 FROM inventory_periods
+				 WHERE id = :id
+				 FOR UPDATE',
+				[':id' => $this->id]
+			)->queryOne();
+
+			if (!$row)
+			{
+				throw new \RuntimeException(
+					'Inventory period not found.'
+				);
+			}
+
+			if ($row['status'] !== 'open')
+			{
+				throw new \RuntimeException(
+					'This inventory period is already closed.'
+				);
+			}
+
+			$currentYear = (int) date('Y');
+			$currentMonth = (int) date('n');
+
+			$periodYear = (int) $row['year'];
+			$periodMonth = (int) $row['month'];
+
+			if (
+				$periodYear > $currentYear ||
+				(
+					$periodYear === $currentYear &&
+					$periodMonth >= $currentMonth
+				)
+			)
+			{
+				throw new \RuntimeException(
+					'Only previous inventory months can be closed.'
+				);
+			}
+
+			// Prevent closing periods containing unfinished transactions.
+			$draftInCount = (new \yii\db\Query())
+				->from('inventory_ins')
+				->where([
+					'invetory_period_id' => $this->id,
+					'status' => 'draft',
+				])
+				->count('*',$db);
+
+			$draftOutCount = (new \yii\db\Query())
+				->from('inventory_outs')
+				->where([
+					'inventory_period_id' => $this->id,
+					'status' => 'draft',
+				])
+				->count('*',$db);
+
+			if ($draftInCount > 0 || $draftOutCount > 0)
+			{
+				throw new \RuntimeException(
+					'Cannot close this period because it contains draft transactions. ' .
+					'Inventory IN drafts: ' . $draftInCount .
+					', Inventory OUT drafts: ' . $draftOutCount . '.'
+				);
+			}
+
+			$affected = $db->createCommand()->update(
+				'inventory_periods',
+				[
+					'status' => 'closed',
+					'closed_by' => $userId,
+					'closed_at' => date('Y-m-d H:i:s'),
+				],
+				[
+					'id' => $this->id,
+					'status' => 'open',
+				]
+			)->execute();
+
+			if ($affected !== 1)
+			{
+				throw new \RuntimeException(
+					'Unable to close the inventory period.'
+				);
+			}
+
+			$transaction->commit();
+
+			$this->refresh();
+
+			return true;
+		}
+		catch (\Throwable $e)
+		{
+			if ($transaction !== null && $transaction->isActive)
+			{
+				$transaction->rollBack();
+			}
+
+			Yii::error($e,__METHOD__);
+
+			$this->addError('status',$e->getMessage());
+
+			return false;
+		}
+	}
+	
+	
+	public function generateProductBalances(): void
+	{
+		$db = static::getDb();
+
+		$start = sprintf('%04d-%02d-01',(int) $this->year,(int) $this->month);
+		$end = date('Y-m-d',strtotime($start . ' +1 month'));
+
+		// Assumes inventory_in_items.qty is the incoming quantity column.
+		$incoming = (new \yii\db\Query())
+			->select([
+				'product_id' => 'ii.product_id',
+				'opening_qty' => new \yii\db\Expression(
+					'SUM(CASE WHEN i.transaction_date < :start THEN ii.qty ELSE 0 END)'
+				),
+				'in_qty' => new \yii\db\Expression(
+					'SUM(CASE WHEN i.transaction_date >= :start AND i.transaction_date < :end THEN ii.qty ELSE 0 END)'
+				),
+				'opening_value' => new \yii\db\Expression(
+					'SUM(CASE WHEN i.transaction_date < :start THEN ii.total_amount ELSE 0 END)'
+				),
+				'in_value' => new \yii\db\Expression(
+					'SUM(CASE WHEN i.transaction_date >= :start AND i.transaction_date < :end THEN ii.total_amount ELSE 0 END)'
+				),
+			])
+			->from(['ii' => 'inventory_in_items'])
+			->innerJoin(['i' => 'inventory_ins'],'i.id = ii.inventory_in_id')
+			->where(['i.status' => 'posted'])
+			->andWhere(['<','i.transaction_date',$end])
+			->groupBy('ii.product_id')
+			->addParams([':start' => $start,':end' => $end])
+			->all($db);
+
+		$outgoing = (new \yii\db\Query())
+			->select([
+				'product_id' => 'oi.product_id',
+				'opening_qty' => new \yii\db\Expression(
+					'SUM(CASE WHEN o.transaction_date < :start THEN oi.qty ELSE 0 END)'
+				),
+				'out_qty' => new \yii\db\Expression(
+					'SUM(CASE WHEN o.transaction_date >= :start AND o.transaction_date < :end THEN oi.qty ELSE 0 END)'
+				),
+				'opening_value' => new \yii\db\Expression(
+					'SUM(CASE WHEN o.transaction_date < :start THEN COALESCE(a.total_amount,0) ELSE 0 END)'
+				),
+				'out_value' => new \yii\db\Expression(
+					'SUM(CASE WHEN o.transaction_date >= :start AND o.transaction_date < :end THEN COALESCE(a.total_amount,0) ELSE 0 END)'
+				),
+			])
+			->from(['oi' => 'inventory_out_items'])
+			->innerJoin(['o' => 'inventory_outs'],'o.id = oi.inventory_out_id')
+			->leftJoin(
+				['a' => 'inventory_out_item_allocations'],
+				'a.inventory_out_item_id = oi.id'
+			)
+			->where(['o.status' => 'posted'])
+			->andWhere(['<','o.transaction_date',$end])
+			->groupBy('oi.product_id')
+			->addParams([':start' => $start,':end' => $end])
+			->all($db);
+
+		$balances = [];
+
+		foreach (Products::find()->select('id')->asArray()->all($db) as $product)
+		{
+			$balances[(int) $product['id']] = [
+				'opening_qty' => 0,
+				'in_qty' => 0,
+				'out_qty' => 0,
+				'opening_value' => 0,
+				'in_value' => 0,
+				'out_value' => 0,
+			];
+		}
+
+		foreach ($incoming as $row)
+		{
+			$id = (int) $row['product_id'];
+
+			foreach (['opening_qty','in_qty','opening_value','in_value'] as $field)
+			{
+				$balances[$id][$field] = (float) $row[$field];
+			}
+		}
+
+		foreach ($outgoing as $row)
+		{
+			$id = (int) $row['product_id'];
+
+			$balances[$id]['opening_qty'] -= (float) $row['opening_qty'];
+			$balances[$id]['out_qty'] = (float) $row['out_qty'];
+			$balances[$id]['opening_value'] -= (float) $row['opening_value'];
+			$balances[$id]['out_value'] = (float) $row['out_value'];
+		}
+
+		foreach ($balances as $productId => $row)
+		{
+			$closingQty = $row['opening_qty'] + $row['in_qty'] - $row['out_qty'];
+			$closingValue = $row['opening_value'] + $row['in_value'] - $row['out_value'];
+
+			$data = [
+				'inventory_period_id' => $this->id,
+				'product_id' => $productId,
+				'opening_qty' => round($row['opening_qty'],3),
+				'in_qty' => round($row['in_qty'],3),
+				'out_qty' => round($row['out_qty'],3),
+				'closing_qty' => round($closingQty,3),
+				'opening_value' => round($row['opening_value'],2),
+				'in_value' => round($row['in_value'],2),
+				'out_value' => round($row['out_value'],2),
+				'closing_value' => round($closingValue,2),
+			];
+
+			$db->createCommand()->upsert(
+				'inventory_period_product_balances',
+				$data,
+				[
+					'opening_qty' => $data['opening_qty'],
+					'in_qty' => $data['in_qty'],
+					'out_qty' => $data['out_qty'],
+					'closing_qty' => $data['closing_qty'],
+					'opening_value' => $data['opening_value'],
+					'in_value' => $data['in_value'],
+					'out_value' => $data['out_value'],
+					'closing_value' => $data['closing_value'],
+					'updated_at' => date('Y-m-d H:i:s'),
+				]
+			)->execute();
+		}
+	}
+
+
 }

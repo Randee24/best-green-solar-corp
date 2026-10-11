@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace backend\controllers;
 use backend\models\Dashboard;
+use backend\models\InventoryPeriods;
 use common\models\LoginForm;
 use Yii;
 use yii\filters\AccessControl;
@@ -77,7 +78,9 @@ class SiteController extends Controller
         {
             $month = (int) date('n');
         }
-
+		
+		InventoryPeriods::ensureCurrentMonth();
+		
         return $this->render('index',[
             'year' => $year,
             'month' => $month,

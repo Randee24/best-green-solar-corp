@@ -9,7 +9,9 @@ use yii\bootstrap5\Nav;
 
 // Awtomatikong lo-load mula sa iyong Composer vendor folder nang napakabilis
 \yii\bootstrap5\BootstrapIconAsset::register($this); 
+\yii\bootstrap5\BootstrapPluginAsset::register($this);
 AppAsset::register($this);
+
 ?>
 <?php $this->beginPage() ?>
 <!DOCTYPE html>

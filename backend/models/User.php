@@ -45,7 +45,7 @@ class User extends \yii\db\ActiveRecord
             [['first_name', 'last_name', 'email', 'role_id', 'department_id', 'username', 'auth_key', 'password_hash'], 'required'],
             [['role_id', 'department_id', 'status'], 'integer'],
             [['created_at', 'updated_at'], 'safe'],
-            [['first_name', 'last_name'], 'string', 'max' => 50],
+            [['first_name','pin_code', 'last_name'], 'string', 'max' => 50],
             [['email', 'username', 'password_hash', 'password_reset_token', 'verification_token'], 'string', 'max' => 255],
             [['auth_key'], 'string', 'max' => 32],
             [['username'], 'unique'],
@@ -63,6 +63,7 @@ class User extends \yii\db\ActiveRecord
             'id' => 'ID',
             'first_name' => 'First Name',
             'last_name' => 'Last Name',
+            'pin_code' => 'PIN Code',
             'email' => 'Email',
             'role_id' => 'Role ID',
             'department_id' => 'Department ID',
@@ -76,5 +77,32 @@ class User extends \yii\db\ActiveRecord
             'verification_token' => 'Verification Token',
         ];
     }
+	
+	
+	public function setPinCode(string $pin): void
+	{
+		if (!preg_match('/^[0-9]{4,8}$/',$pin))
+		{
+			throw new \InvalidArgumentException(
+				'PIN must contain 4 to 8 digits.'
+			);
+		}
+
+		$this->pin_code = Yii::$app->security->generatePasswordHash($pin);
+	}
+
+	public function verifyPinCode(string $pin): bool
+	{
+		if (empty($this->pin_code))
+		{
+			return false;
+		}
+
+		return Yii::$app->security->validatePassword(
+			$pin,
+			$this->pin_code
+		);
+	}
+
 
 }

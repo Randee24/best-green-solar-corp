@@ -10,7 +10,7 @@ class InventoryPeriodSearch extends InventoryPeriods
     public function rules()
     {
         return [
-            [['id','year','month'],'integer'],
+            [['id','month','year'],'integer'],
             [['status'],'safe'],
         ];
     }
@@ -22,18 +22,16 @@ class InventoryPeriodSearch extends InventoryPeriods
 
     public function search($params)
     {
-        $query = InventoryPeriods::find();
+        $query = InventoryPeriods::find()
+            ->orderBy([
+                'year' => SORT_DESC,
+                'month' => SORT_DESC,
+            ]);
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'pagination' => [
                 'pageSize' => 20,
-            ],
-            'sort' => [
-                'defaultOrder' => [
-                    'year' => SORT_DESC,
-                    'month' => SORT_DESC,
-                ],
             ],
         ]);
 
@@ -46,8 +44,8 @@ class InventoryPeriodSearch extends InventoryPeriods
 
         $query->andFilterWhere([
             'id' => $this->id,
-            'year' => $this->year,
             'month' => $this->month,
+            'year' => $this->year,
             'status' => $this->status,
         ]);
 
