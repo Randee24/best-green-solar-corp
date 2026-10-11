@@ -38,6 +38,12 @@ class SupplierProducts extends \yii\db\ActiveRecord
             [['supplier_id', 'product_id'], 'integer'],
             [['supplier_price'], 'number'],
             [['created_at'], 'safe'],
+			[
+				['supplier_id','product_id'],
+				'unique',
+				'targetAttribute' => ['supplier_id','product_id'],
+				'message' => 'This supplier already has this product.',
+			],
             [['supplier_product_code'], 'string', 'max' => 100],
         ];
     }
@@ -88,8 +94,7 @@ class SupplierProducts extends \yii\db\ActiveRecord
             'id' => SORT_DESC,
         ])->one();
 
-		// Compare normalized DECIMAL(10,2) values.
-		if ($latest !== null && bccomp((string) $latest->supplier_price,$price,2) === 0) {
+		if ($latest !== null) {
 			return true;
 		}
 
@@ -154,6 +159,56 @@ class SupplierProducts extends \yii\db\ActiveRecord
 		}
 
 		return $record;
+	}
+	
+	public function updatePriceFromInventoryIn(float $newPrice,int $userId): bool
+	{
+		$oldPrice = round((float) $this->supplier_price,2);
+		$newPrice = round($newPrice,2);
+
+		// No change in price, no history needed.
+		if ($oldPrice === $newPrice)
+		{
+			return true;
+		}
+
+		$change = new ProductPriceChanges();
+
+		$change->supplier_product_id = $this->id;
+		$change->product_id = $this->product_id;
+
+		// Store DECIMAL values as formatted strings.
+		$change->old_price = number_format($oldPrice,2,'.','');
+		$change->new_price = number_format($newPrice,2,'.','');
+
+		$change->user_id = $userId;
+		$change->changed_at = date('Y-m-d H:i:s');
+
+		if (!$change->validate())
+		{
+			throw new \RuntimeException(
+				'Unable to validate supplier price change: '
+				. json_encode($change->getErrors())
+			);
+		}
+
+		$this->supplier_price = number_format($newPrice,2,'.','');
+
+		if (!$this->save(false,['supplier_price']))
+		{
+			throw new \RuntimeException(
+				'Unable to update supplier price.'
+			);
+		}
+
+		if (!$change->save(false))
+		{
+			throw new \RuntimeException(
+				'Unable to record supplier price change.'
+			);
+		}
+
+		return true;
 	}
 
 }

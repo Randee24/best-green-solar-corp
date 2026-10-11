@@ -52,9 +52,15 @@ class InventoryPeriodController extends Controller
 
     public function actionView($id)
     {
-        return $this->render('view',[
-            'model' => $this->findModel($id),
-        ]);
+        $model = $this->findModel($id);
+
+		return $this->render('view',[
+			'model' => $model,
+			'balancesProvider' => $model->getProductBalancesProvider(),
+			'balanceSummary' => $model->getProductBalanceSummary(),
+			'transactionSummary' => $model->getTransactionSummary(),
+			'history' => $model->getPeriodHistory(),
+		]);
     }
 
     public function actionClose($id)

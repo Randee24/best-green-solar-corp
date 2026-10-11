@@ -13,8 +13,11 @@ $this->params['breadcrumbs'][] = 'Update';
 <div class="inventory-ins-update">
 
 
-    <?= $this->render('_form', [
-        'model' => $model,
-    ]) ?>
+    <?= $this->render('_form',[
+		'model' => $model,
+		'products' => $products,
+		'suppliers' => $suppliers,
+		'items' => $items,
+	]) ?>
 
 </div>

@@ -331,7 +331,7 @@ class InventoryPeriods extends \yii\db\ActiveRecord
 
 		try
 		{
-			$user = \common\models\User::findOne($userId);
+			$user = User::findOne($userId);
 
 			if ($user === null || !$user->verifyPinCode($pin))
 			{
@@ -385,7 +385,7 @@ class InventoryPeriods extends \yii\db\ActiveRecord
 			$draftInCount = (new \yii\db\Query())
 				->from('inventory_ins')
 				->where([
-					'invetory_period_id' => $this->id,
+					'inventory_period_id' => $this->id,
 					'status' => 'draft',
 				])
 				->count('*',$db);
@@ -578,6 +578,209 @@ class InventoryPeriods extends \yii\db\ActiveRecord
 			)->execute();
 		}
 	}
+	
+	public function getProductBalancesProvider(): \yii\data\ActiveDataProvider
+	{
+		$query = (new \yii\db\Query())
+			->select([
+				'b.*',
+				'product_name' => 'p.name',
+			])
+			->from(['b' => 'inventory_period_product_balances'])
+			->innerJoin(['p' => 'products'],'p.id = b.product_id')
+			->where(['b.inventory_period_id' => $this->id])
+			->andWhere([
+				'or',
+				['<>','b.in_qty',0],
+				['<>','b.out_qty',0],
+			])
+			->orderBy(['p.name' => SORT_ASC]);
 
+		return new \yii\data\ActiveDataProvider([
+			'query' => $query,
+			'pagination' => [
+				'pageSize' => 20,
+				'pageParam' => 'balance-page',
+			],
+		]);
+	}
+	
+	public function getProductBalanceSummary(): array
+	{
+		$summary = (new \yii\db\Query())
+			->select([
+				'product_count' => 'COUNT(*)',
+				'total_in_qty' => 'COALESCE(SUM(in_qty),0)',
+				'total_out_qty' => 'COALESCE(SUM(out_qty),0)',
+				'total_closing_qty' => 'COALESCE(SUM(closing_qty),0)',
+				'total_closing_value' => 'COALESCE(SUM(closing_value),0)',
+			])
+			->from('inventory_period_product_balances')
+			->where(['inventory_period_id' => $this->id])
+			->andWhere([
+				'or',
+				['<>','in_qty',0],
+				['<>','out_qty',0],
+			])
+			->one();
 
+		return $summary ?: [
+			'product_count' => 0,
+			'total_in_qty' => 0,
+			'total_out_qty' => 0,
+			'total_closing_qty' => 0,
+			'total_closing_value' => 0,
+		];
+	}
+
+	public function getTransactionSummary(): array
+	{
+		$db = static::getDb();
+
+		$in = (new \yii\db\Query())
+			->select([
+				'total' => 'COUNT(*)',
+				'posted' => "SUM(CASE WHEN status = 'posted' THEN 1 ELSE 0 END)",
+			])
+			->from('inventory_ins')
+			->where(['inventory_period_id' => $this->id])
+			->one($db);
+
+		$out = (new \yii\db\Query())
+			->select([
+				'total' => 'COUNT(*)',
+				'posted' => "SUM(CASE WHEN status = 'posted' THEN 1 ELSE 0 END)",
+			])
+			->from('inventory_outs')
+			->where(['inventory_period_id' => $this->id])
+			->one($db);
+
+		return [
+			'in_total' => (int) ($in['total'] ?? 0),
+			'in_posted' => (int) ($in['posted'] ?? 0),
+			'out_total' => (int) ($out['total'] ?? 0),
+			'out_posted' => (int) ($out['posted'] ?? 0),
+		];
+	}
+	
+	public function getPeriodHistory(int $limit = 50): array
+	{
+		$db = static::getDb();
+
+		$inHistory = (new \yii\db\Query())
+			->select([
+				'i.id',
+				'i.transaction_date',
+				'i.status',
+				'i.created_at',
+				'i.user_id',
+				'u.first_name',
+				'u.last_name',
+				'department_name' => 'd.name',
+			])
+			->from(['i' => 'inventory_ins'])
+			->leftJoin(['u' => 'user'],'u.id = i.user_id')
+			->leftJoin(['d' => 'departments'],'d.id = u.department_id')
+			->where(['i.inventory_period_id' => $this->id])
+			->orderBy(['i.created_at' => SORT_DESC])
+			->limit($limit)
+			->all($db);
+
+		$outHistory = (new \yii\db\Query())
+			->select([
+				'o.id',
+				'o.transaction_date',
+				'o.status',
+				'o.created_at',
+				'o.user_id',
+				'u.first_name',
+				'u.last_name',
+				'department_name' => 'd.name',
+			])
+			->from(['o' => 'inventory_outs'])
+			->leftJoin(['u' => 'user'],'u.id = o.user_id')
+			->leftJoin(['d' => 'departments'],'d.id = u.department_id')
+			->where(['o.inventory_period_id' => $this->id])
+			->orderBy(['o.created_at' => SORT_DESC])
+			->limit($limit)
+			->all($db);
+
+		$history = [];
+
+		foreach ($inHistory as $row)
+		{
+			$fullName = trim(
+				($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? '')
+			);
+
+			$department = $row['department_name'] ?? '';
+
+			$history[] = [
+				'type' => 'in',
+				'title' => 'Inventory IN #' . $row['id'],
+				'description' => 'Status: ' . ucfirst($row['status']),
+				'user_name' => $fullName ?: 'Unknown User',
+				'department' => $department,
+				'date' => $row['created_at'] ?: $row['transaction_date'],
+				'url' => ['/inventory-in/view','id' => $row['id']],
+			];
+		}
+
+		foreach ($outHistory as $row)
+		{
+			$history[] = [
+				'type' => 'out',
+				'title' => 'Inventory OUT #' . $row['id'],
+				'description' => 'Status: ' . ucfirst($row['status']),
+				'date' => $row['created_at'] ?: $row['transaction_date'],
+				'url' => ['/inventory-out/view','id' => $row['id']],
+			];
+		}
+
+		if ($this->status === 'closed' && $this->closed_at)
+		{
+			$history[] = [
+				'type' => 'closed',
+				'title' => 'Inventory Period Closed',
+				'description' => 'Monthly inventory balances finalized',
+				'date' => $this->closed_at,
+				'url' => null,
+			];
+		}
+
+		usort($history,function ($a,$b)
+		{
+			return strcmp((string) $b['date'],(string) $a['date']);
+		});
+
+		return array_slice($history,0,$limit);
+	}
+	
+	public function getClosedByUser()
+	{
+		return $this->hasOne(User::class, ['id' => 'closed_by']);
+	}
+	
+	public function getClosedByDisplayName(): string
+	{
+		$user = $this->closedByUser;
+
+		if ($user === null)
+		{
+			return 'N/A';
+		}
+
+		$fullName = trim(
+			($user->first_name ?? '') . ' ' . ($user->last_name ?? '')
+		);
+
+		$department = $user->department->name ?? '';
+
+		if ($fullName === '')
+		{
+			$fullName = $user->username;
+		}
+
+		return $fullName . ($department !== '' ? ' (' . $department . ')' : '');
+	}
 }

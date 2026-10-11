@@ -3,7 +3,7 @@
 namespace backend\models;
 
 use Yii;
-
+use yii\data\ArrayDataProvider;
 /**
  * This is the model class for table "products".
  *
@@ -81,6 +81,11 @@ class Products extends \yii\db\ActiveRecord
 		return $this->hasMany( ProductPriceChanges::class,['product_id' => 'id']);
 	}
 	
+	public function getSupplierProducts()
+	{
+		return $this->hasMany(SupplierProducts::class,['product_id' => 'id']);
+	}
+
 	/**
 	 * Get the current available quantity of this product.
 	 *
@@ -178,6 +183,132 @@ class Products extends \yii\db\ActiveRecord
 		}
 
 		return $options;
+	}
+	public function getAvailableQtyFromTransactions(): float
+	{
+		$db = static::getDb();
+
+		$totalIn = (new \yii\db\Query())
+			->from(['ii' => 'inventory_in_items'])
+			->innerJoin(['i' => 'inventory_ins'],'i.id = ii.inventory_in_id')
+			->where([
+				'ii.product_id' => $this->id,
+				'i.status' => 'posted',
+			])
+			->sum('ii.qty',$db);
+
+		$totalOut = (new \yii\db\Query())
+			->from(['oi' => 'inventory_out_items'])
+			->innerJoin(['o' => 'inventory_outs'],'o.id = oi.inventory_out_id')
+			->where([
+				'oi.product_id' => $this->id,
+				'o.status' => 'posted',
+			])
+			->sum('oi.qty',$db);
+
+		return round(
+			(float) $totalIn - (float) $totalOut,
+			3
+		);
+	}
+	
+	public function getSupplierPriceHistoryData(): array
+	{
+		$priceChanges = $this->getProductPriceChanges()
+			->with([
+				'supplierProduct.supplier',
+				'user',
+			])
+			->orderBy([
+				'changed_at' => SORT_DESC,
+				'id' => SORT_DESC,
+			])
+			->all();
+
+		$latestChangeIds = [];
+
+		foreach ($priceChanges as $change)
+		{
+			$supplierProductId = $change->supplier_product_id;
+
+			if (!isset($latestChangeIds[$supplierProductId]))
+			{
+				$latestChangeIds[$supplierProductId] = $change->id;
+			}
+		}
+
+		return [
+			'historyProvider' => new ArrayDataProvider([
+				'allModels' => $priceChanges,
+				'pagination' => [
+					'pageSize' => 10,
+				],
+				'sort' => false,
+			]),
+			'latestChangeIds' => $latestChangeIds,
+			'priceChangeCount' => count($priceChanges),
+		];
+	}
+
+	public function getSupplierPriceData(): array
+	{
+		$supplierProducts = $this->getSupplierProducts()
+			->with('supplier')
+			->orderBy(['id' => SORT_ASC])
+			->all();
+
+		$priceChanges = $this->getProductPriceChanges()
+			->with([
+				'supplierProduct.supplier',
+				'user',
+			])
+			->orderBy([
+				'changed_at' => SORT_DESC,
+				'id' => SORT_DESC,
+			])
+			->all();
+
+		$latestChanges = [];
+
+		foreach ($priceChanges as $change)
+		{
+			$supplierProductId = $change->supplier_product_id;
+
+			if (!isset($latestChanges[$supplierProductId]))
+			{
+				$latestChanges[$supplierProductId] = $change;
+			}
+		}
+
+		$supplierPrices = [];
+
+		foreach ($supplierProducts as $supplierProduct)
+		{
+			$latestChange = $latestChanges[$supplierProduct->id] ?? null;
+
+			$supplierPrices[] = [
+				'supplier_id' => $supplierProduct->supplier_id,
+				'supplier_name' => $supplierProduct->supplier->name ?? 'N/A',
+				'supplier_product_code' => $supplierProduct->supplier_product_code,
+				'previous_price' => $latestChange
+					? (float) $latestChange->old_price
+					: null,
+				'current_price' => (float) $supplierProduct->supplier_price,
+				'date_added' => $supplierProduct->created_at,
+			];
+		}
+
+		return [
+			'supplierPrices' => $supplierPrices,
+			'historyProvider' => new ArrayDataProvider([
+				'allModels' => $priceChanges,
+				'pagination' => [
+					'pageSize' => 10,
+				],
+				'sort' => false,
+			]),
+			'priceChangeCount' => count($priceChanges),
+		];
 	}
 
 }

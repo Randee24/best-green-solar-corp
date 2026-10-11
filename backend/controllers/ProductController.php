@@ -7,6 +7,7 @@ use backend\models\ProductSearch;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
+
 /**
  * ProductController implements the CRUD actions for Products model.
  */
@@ -106,29 +107,26 @@ class ProductController extends Controller
 	
 	public function actionView($id)
 	{
-		$model = Products::find()
-			->with([
-				'productType',
-				'unit',
-				'productPriceChanges' => function($query)
-				{
-					$query->orderBy(['changed_at' => SORT_DESC,'id' => SORT_DESC]);
-				},
-				'productPriceChanges.supplierProduct.supplier',
-				'productPriceChanges.user',
-			])
-			->where(['id' => $id])
-			->one();
+		$model = Products::findOne($id);
 
 		if ($model === null)
 		{
-			throw new \yii\web\NotFoundHttpException('Product not found.');
+			throw new \yii\web\NotFoundHttpException(
+				'Product not found.'
+			);
 		}
+
+		$priceData = $model->getSupplierPriceData();
 
 		return $this->render('view',[
 			'model' => $model,
+			'qty' => $model->getAvailableQty(),
+			'supplierPrices' => $priceData['supplierPrices'],
+			'historyProvider' => $priceData['historyProvider'],
+			'priceChangeCount' => $priceData['priceChangeCount'],
 		]);
 	}
+
 	protected function findModel($id)
 	{
 		$model = Products::find()

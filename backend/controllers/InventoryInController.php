@@ -61,20 +61,22 @@ class InventoryInController extends Controller
 		$model = InventoryIns::find()
 			->with([
 				'supplier',
-				'inventoryPeriod',
-				'inventoryInItems.product',
-				'inventoryInItems.supplierProduct',
+				'user.department',
+				'inventoryInItems.product.unit',
 			])
 			->where(['id' => $id])
 			->one();
 
 		if ($model === null)
 		{
-			throw new \yii\web\NotFoundHttpException('Inventory receipt not found.');
+			throw new \yii\web\NotFoundHttpException(
+				'Inventory IN transaction not found.'
+			);
 		}
 
 		return $this->render('view',[
 			'model' => $model,
+			'history' => $model->getInventoryHistory(),
 		]);
 	}
 
@@ -107,9 +109,7 @@ class InventoryInController extends Controller
 				implode(' ',$model->getFirstErrors()) ?: 'Unable to save inventory receipt.'
 			);
 		}
-		return $this->render('create', [
-			'model' => $model,
-		]);
+		return $this->renderInventoryInForm('create',$model);
     }
 
     /**
@@ -120,17 +120,49 @@ class InventoryInController extends Controller
      * @throws NotFoundHttpException if the model cannot be found
      */
     public function actionUpdate($id)
-    {
-        $model = $this->findModel($id);
+	{
+		$model = $this->findModel($id);
 
-        if ($this->request->isPost && $model->load($this->request->post()) && $model->save()) {
-            return $this->redirect(['view', 'id' => $model->id]);
-        }
+		if ($model->status !== 'draft')
+		{
+			throw new \yii\web\ForbiddenHttpException(
+				'Only draft Inventory IN transactions can be edited.'
+			);
+		}
 
-        return $this->render('update', [
-            'model' => $model,
-        ]);
-    }
+		if ($model->load(Yii::$app->request->post()))
+		{
+			try
+			{
+				$items = Yii::$app->request->post('items',[]);
+
+				if ($model->updateWithItems(
+					$items,
+					(int) Yii::$app->user->id
+				))
+				{
+					Yii::$app->session->setFlash(
+						'success',
+						'Inventory IN updated successfully.'
+					);
+
+					return $this->redirect([
+						'view',
+						'id' => $model->id,
+					]);
+				}
+			}
+			catch (\Throwable $e)
+			{
+				Yii::$app->session->setFlash(
+					'error',
+					$e->getMessage()
+				);
+			}
+		}
+
+		return $this->renderInventoryInForm('update',$model);
+	}
 
     /**
      * Deletes an existing InventoryIns model.
@@ -142,6 +174,30 @@ class InventoryInController extends Controller
 	 
 	public function actionPost($id)
 	{
+		$request = Yii::$app->request;
+
+		if (!$request->isPost)
+		{
+			throw new \yii\web\MethodNotAllowedHttpException(
+				'Posting requires a POST request.'
+			);
+		}
+
+		$model = $this->findModel($id);
+
+		$pin = (string) $request->post('pin_code','');
+		$userId = (int) Yii::$app->user->id;
+
+		if (!$model->verifyPostingPin($pin,$userId))
+		{
+			Yii::$app->session->setFlash(
+				'error',
+				'Invalid PIN code. Inventory IN was not posted.'
+			);
+
+			return $this->redirect(['view','id' => $model->id]);
+		}
+		
 		if (!Yii::$app->request->isPost) {
 			throw new MethodNotAllowedHttpException(
 				'Posting requires a POST request.'
@@ -156,7 +212,8 @@ class InventoryInController extends Controller
 			);
 		}
 
-		if ($model->postInventory()) {
+		if ($model->postInventory($userId)) {
+			$model->logPostingChange($userId);
 			Yii::$app->session->setFlash(
 				'success',
 				'Inventory receipt posted successfully.'
@@ -174,7 +231,24 @@ class InventoryInController extends Controller
 			'id' => $model->id,
 		]);
 	}
+	
+	private function renderInventoryInForm(string $view, InventoryIns $model)
+	{
+		$request = Yii::$app->request;
 
+		$postedItems = $request->isPost
+			? $request->post('items')
+			: null;
+
+		return $this->render($view,[
+			'model' => $model,
+			'products' => InventoryIns::getProductOptions(),
+			'suppliers' => InventoryIns::getSupplierOptions(),
+			'items' => $model->getFormItems(
+				is_array($postedItems) ? $postedItems : null
+			),
+		]);
+	}
     /**
      * Finds the InventoryIns model based on its primary key value.
      * If the model is not found, a 404 HTTP exception will be thrown.

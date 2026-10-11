@@ -4,6 +4,7 @@ namespace backend\models;
 
 use Yii;
 use yii\db\Transaction;
+use yii\helpers\ArrayHelper;
 /**
  * This is the model class for table "inventory_ins".
  *
@@ -69,7 +70,15 @@ class InventoryIns extends \yii\db\ActiveRecord
 		return $this->hasMany(InventoryInItems::class,['inventory_in_id' => 'id'])
 			->orderBy(['id' => SORT_ASC]);
 	}
-	
+	public function getInventoryInChanges()
+	{
+		return $this->hasMany(InventoryInChanges::class,['inventory_in_id' => 'id'])
+			->orderBy(['changed_at' => SORT_DESC,'id' => SORT_DESC]);
+	}
+	public function getUser()
+	{
+		return $this->hasOne(User::class,['id' => 'user_id']);
+	}
 	
 	/**
 	 * Saves an Inventory IN receipt with multiple products.
@@ -289,7 +298,7 @@ class InventoryIns extends \yii\db\ActiveRecord
 		return $hasErrors ? false : $items;
 	}
 	
-	public function postInventory(): bool
+	public function postInventory($userId): bool
 	{
 		$db = static::getDb();
 
@@ -383,12 +392,37 @@ class InventoryIns extends \yii\db\ActiveRecord
 				}
 
 				// Find or create supplier price history.
-				$supplierProduct = SupplierProducts::findOrCreatePrice(
-					(int) $receipt['supplier_id'],
-					(int) $item->product_id,
-					(string) $item->amount
-				);
+				 $supplierProduct = SupplierProducts::find()
+										->where([
+											'supplier_id' => $this->supplier_id,
+											'product_id' => $item->product_id,
+										])
+										->one();
+				
+				 if ($supplierProduct === null)
+					{
+						$supplierProduct = new SupplierProducts();
 
+						$supplierProduct->supplier_id = $this->supplier_id;
+						$supplierProduct->product_id = $item->product_id;
+						$supplierProduct->supplier_price = $item->amount;
+
+						if (!$supplierProduct->save())
+						{
+							throw new \RuntimeException(
+								'Unable to create supplier product: '
+								. json_encode($supplierProduct->getErrors())
+							);
+						}
+
+						// Initial price: no historical change yet.
+						continue;
+					}
+
+					$supplierProduct->updatePriceFromInventoryIn(
+						(float) $item->amount,
+						$userId
+					);
 				// Link item to exact supplier price version.
 				$item->supplier_product_id = $supplierProduct->id;
 
@@ -436,5 +470,422 @@ class InventoryIns extends \yii\db\ActiveRecord
 			return false;
 		}
 	}
+	
+	public function getTotalReceivedQty(): float
+	{
+		$total = 0;
 
+		foreach ($this->inventoryInItems as $item)
+		{
+			$total += (float) $item->qty;
+		}
+
+		return $total;
+	}
+
+	public function getTotalReceivedAmount(): float
+	{
+		$total = 0;
+
+		foreach ($this->inventoryInItems as $item)
+		{
+			$total += (float) $item->total_amount;
+		}
+
+		return $total;
+	}
+
+	public function getReceivedByDisplayName(): string
+	{
+		$user = $this->user;
+
+		if ($user === null)
+		{
+			return 'N/A';
+		}
+
+		$name = trim(
+			($user->first_name ?? '') . ' ' . ($user->last_name ?? '')
+		);
+
+		if ($name === '')
+		{
+			$name = $user->username;
+		}
+
+		$department = $user->department->name ?? '';
+
+		return $name . ($department !== '' ? ' (' . $department . ')' : '');
+	}
+	
+	public static function getProductOptions(): array
+	{
+		return ArrayHelper::map(
+			Products::find()
+				->orderBy(['name' => SORT_ASC])
+				->asArray()
+				->all(),
+			'id',
+			'name'
+		);
+	}
+	
+	public static function getSupplierOptions(): array
+	{
+		return ArrayHelper::map(
+			Suppliers::find()
+				->orderBy(['name' => SORT_ASC])
+				->asArray()
+				->all(),
+			'id',
+			'name'
+		);
+	}
+	public function getFormItems(?array $postedItems = null): array
+	{
+		if ($postedItems !== null)
+		{
+			$items = array_values($postedItems);
+		}
+		elseif (!$this->isNewRecord)
+		{
+			$items = [];
+
+			foreach ($this->inventoryInItems as $item)
+			{
+				$items[] = [
+					'id' => $item->id,
+					'product_id' => $item->product_id,
+					'qty' => $item->qty,
+					'amount' => $item->amount,
+				];
+			}
+		}
+		else
+		{
+			$items = [];
+		}
+
+		if (empty($items))
+		{
+			$items[] = [
+				'product_id' => '',
+				'qty' => 1,
+				'amount' => '0.00',
+			];
+		}
+
+		return $items;
+	}
+	
+	private function logInventoryChange(string $oldValue, string $newValue, ?int $userId): void
+	{
+		$change = new InventoryInChanges();
+		$change->inventory_in_id = $this->id;
+		$change->old_value = mb_substr($oldValue,0,255);
+		$change->new_value = mb_substr($newValue,0,255);
+		$change->user_id = $userId;
+		$change->changed_at = date('Y-m-d H:i:s');
+
+		if (!$change->save())
+		{
+			throw new \RuntimeException(
+				'Unable to save inventory change: ' .
+				json_encode($change->getErrors())
+			);
+		}
+	}
+	public function updateWithItems(array $submittedItems, ?int $userId = null): bool
+	{
+		$db = static::getDb();
+		$transaction = $db->beginTransaction();
+
+		try
+		{
+			if ($this->isNewRecord || $this->status !== 'draft')
+			{
+				throw new \DomainException(
+					'Only existing draft Inventory IN transactions can be edited.'
+				);
+			}
+
+			$oldHeader = [
+				'transaction_date' => $this->getOldAttribute('transaction_date'),
+				'supplier_id' => $this->getOldAttribute('supplier_id'),
+			];
+
+			if (empty($submittedItems))
+			{
+				throw new \DomainException('At least one product is required.');
+			}
+
+			// Lock existing items while updating.
+			$existingItems = InventoryInItems::find()
+				->where(['inventory_in_id' => $this->id])
+				->orderBy(['id' => SORT_ASC])
+				->all();
+
+			$existingById = [];
+
+			foreach ($existingItems as $item)
+			{
+				$existingById[(int) $item->id] = $item;
+			}
+
+			$seenIds = [];
+			$changes = [];
+
+			// Validate the header before saving.
+			if (!$this->validate())
+			{
+				return false;
+			}
+
+			foreach ($submittedItems as $row)
+			{
+				$itemId = (int) ($row['id'] ?? 0);
+				$productId = (int) ($row['product_id'] ?? 0);
+				$qty = (float) ($row['qty'] ?? 0);
+				$amount = (float) ($row['amount'] ?? -1);
+
+				if ($productId <= 0 || $qty <= 0 || $amount < 0)
+				{
+					throw new \DomainException(
+						'Invalid product, quantity, or unit cost.'
+					);
+				}
+
+				if ($itemId > 0)
+				{
+					if (!isset($existingById[$itemId]) || isset($seenIds[$itemId]))
+					{
+						throw new \DomainException(
+							'Invalid or duplicated Inventory IN item ID.'
+						);
+					}
+
+					$item = $existingById[$itemId];
+					$seenIds[$itemId] = true;
+
+					$oldProductId = (int) $item->product_id;
+					$oldQty = (float) $item->qty;
+					$oldAmount = (float) $item->amount;
+
+					if ($oldProductId !== $productId)
+					{
+						$changes[] = [
+							"Item #{$itemId} product: {$oldProductId}",
+							"Item #{$itemId} product: {$productId}",
+						];
+					}
+
+					if (abs($oldQty - $qty) > 0.000001)
+					{
+						$changes[] = [
+							"Item #{$itemId} quantity: {$oldQty}",
+							"Item #{$itemId} quantity: {$qty}",
+						];
+					}
+
+					if (abs($oldAmount - $amount) > 0.000001)
+					{
+						$changes[] = [
+							"Item #{$itemId} unit cost: {$oldAmount}",
+							"Item #{$itemId} unit cost: {$amount}",
+						];
+					}
+				}
+				else
+				{
+					$item = new InventoryInItems();
+					$item->inventory_in_id = $this->id;
+				}
+
+				$item->product_id = $productId;
+				$item->qty = $qty;
+				$item->amount = $amount;
+				$item->total_amount = round($qty * $amount,2);
+
+				if (!$item->save())
+				{
+					throw new \RuntimeException(
+						'Unable to save receipt item: ' .
+						json_encode($item->getErrors())
+					);
+				}
+
+				if ($itemId === 0)
+				{
+					$changes[] = [
+						'No item',
+						"Added item #{$item->id}: Product #{$productId}, Qty {$qty}, Cost {$amount}",
+					];
+				}
+			}
+
+			// Remove existing items that were omitted from the form.
+			foreach ($existingById as $itemId => $item)
+			{
+				if (isset($seenIds[$itemId]))
+				{
+					continue;
+				}
+
+				$changes[] = [
+					"Removed item #{$itemId}: Product #{$item->product_id}, Qty {$item->qty}, Cost {$item->amount}",
+					'Item removed',
+				];
+
+				if (!$item->delete())
+				{
+					throw new \RuntimeException(
+						'Unable to remove Inventory IN item #' . $itemId
+					);
+				}
+			}
+
+			if (!$this->save(false))
+			{
+				throw new \RuntimeException('Unable to update Inventory IN.');
+			}
+
+			// Header change history.
+			if ($oldHeader['transaction_date'] != $this->transaction_date)
+			{
+				$changes[] = [
+					'Transaction date: ' . $oldHeader['transaction_date'],
+					'Transaction date: ' . $this->transaction_date,
+				];
+			}
+
+			if ((string) $oldHeader['supplier_id'] !== (string) $this->supplier_id)
+			{
+				$changes[] = [
+					'Supplier ID: ' . $oldHeader['supplier_id'],
+					'Supplier ID: ' . $this->supplier_id,
+				];
+			}
+
+			foreach ($changes as [$oldValue, $newValue])
+			{
+				$this->logInventoryChange($oldValue,$newValue,$userId);
+			}
+
+			$transaction->commit();
+
+			return true;
+		}
+		catch (\Throwable $e)
+		{
+			$transaction->rollBack();
+			throw $e;
+		}
+	}
+	public function getInventoryHistory(): array
+	{
+		$history = [];
+
+		// Inventory creation event
+		$history[] = [
+			'type' => 'created',
+			'title' => 'Inventory IN Created',
+			'description' => 'Inventory receipt created',
+			'date' => $this->created_at,
+			'user_name' => $this->getReceivedByDisplayName(),
+		];
+
+		// Changes made to the Inventory IN
+		$changes = InventoryInChanges::find()
+			->alias('c')
+			->select([
+				'c.id',
+				'c.old_value',
+				'c.new_value',
+				'c.changed_at',
+				'u.username',
+				'u.first_name',
+				'u.last_name',
+				'department_name' => 'd.name',
+			])
+			->leftJoin(['u' => 'user'],'u.id = c.user_id')
+			->leftJoin(['d' => 'departments'],'d.id = u.department_id')
+			->where(['c.inventory_in_id' => $this->id])
+			->orderBy(['c.changed_at' => SORT_DESC,'c.id' => SORT_DESC])
+			->asArray()
+			->all();
+
+		foreach ($changes as $change)
+		{
+			$name = trim(
+				($change['first_name'] ?? '') . ' ' .
+				($change['last_name'] ?? '')
+			);
+
+			if ($name === '')
+			{
+				$name = $change['username'] ?: 'Unknown User';
+			}
+
+			$department = $change['department_name'] ?? '';
+
+			$isPosting = $change['old_value'] === 'Status: Draft' && $change['new_value'] === 'Status: Posted';
+
+			$history[] = [
+				'type' => $isPosting ? 'posted' : 'updated',
+				'title' => $isPosting
+					? 'Inventory IN Posted'
+					: 'Inventory IN Updated',
+				'description' => $isPosting
+					? 'Inventory receipt successfully posted'
+					: 'Receipt information modified',
+				'old_value' => $change['old_value'],
+				'new_value' => $change['new_value'],
+				'date' => $change['changed_at'],
+				'user_name' => $name,
+				'department' => $department,
+			];
+		}
+
+		// Sort newest first
+		usort($history,function ($a,$b)
+		{
+			return strcmp(
+				(string) $b['date'],
+				(string) $a['date']
+			);
+		});
+
+		return $history;
+	}
+	
+	public function verifyPostingPin(string $pin, int $userId): bool
+	{
+		$user = User::findOne($userId);
+
+		if ($user === null)
+		{
+			return false;
+		}
+
+		return $user->verifyPinCode($pin);
+	}
+	
+	public function logPostingChange(int $userId): void
+	{
+		$change = new InventoryInChanges();
+
+		$change->inventory_in_id = $this->id;
+		$change->old_value = 'Status: Draft';
+		$change->new_value = 'Status: Posted';
+		$change->user_id = $userId;
+		$change->changed_at = date('Y-m-d H:i:s');
+
+		if (!$change->save())
+		{
+			throw new \RuntimeException(
+				'Unable to record posting history: ' .
+				json_encode($change->getErrors())
+			);
+		}
+	}
 }

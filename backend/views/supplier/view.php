@@ -37,78 +37,72 @@ $this->params['breadcrumbs'][] = $this->title;
 		<?php } ?>
 	<?php } ?>
     <!-- PAGE HEADER -->
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+     
+	<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
 
-        <div>
-            <h3 class="fw-bold mb-1">
-                <i class="bi bi-building text-primary me-2"></i>
-                <?= Html::encode($model->name) ?>
-            </h3>
+		<!-- LEFT: SUPPLIER INFORMATION -->
+		<div>
 
-            <div class="text-muted">
-                Supplier ID: #<?= Html::encode($model->id) ?>
-            </div>
-        </div>
+			<h4 class="fw-semibold mb-1">
+				<i class="bi bi-building me-2 text-primary"></i>
+				<?= Html::encode($model->name) ?>
+			</h4>
 
-        <div class="d-flex gap-2">
+			<div class="d-flex flex-wrap gap-3 text-muted small">
 
-            <?= Html::a(
-                '<i class="bi bi-arrow-left me-1"></i> Back',
-                ['index'],
-                ['class' => 'btn btn-outline-secondary']
-            ) ?>
+				<span>
+					<i class="bi bi-hash me-1"></i>
+					ID: <?= Html::encode($model->id) ?>
+				</span>
 
-            <?= Html::a(
-                '<i class="bi bi-pencil-square me-1"></i> Edit Supplier',
-                ['update','id' => $model->id],
-                ['class' => 'btn btn-primary']
-            ) ?>
-
-        </div>
-    </div>
-
-  <!-- SUPPLIER INFORMATION -->
-	<div class="card border-0 shadow-sm mb-4">
-
-		<div class="card-header bg-white py-3">
-			<h5 class="mb-0">
-				<i class="bi bi-info-circle text-primary me-2"></i>
-				Supplier Information
-			</h5>
-		</div>
-
-		<div class="card-body p-4">
-
-			<div class="row g-4">
-
-				<div class="col-md-6">
-					<div class="text-muted small mb-1">
-						Supplier ID
-					</div>
-
-					<div class="fw-semibold">
-						#<?= Html::encode($model->id) ?>
-					</div>
-				</div>
-
-				<div class="col-md-6">
-					<div class="text-muted small mb-1">
-						Date Added
-					</div>
-
-					<div class="fw-semibold">
-						<?= Yii::$app->formatter->asDatetime(
-							$model->created_at,
-							'php:M d, Y h:i A'
-						) ?>
-					</div>
-				</div>
+				<span>
+					<i class="bi bi-calendar3 me-1"></i>
+					Date Added:
+					<?= Yii::$app->formatter->asDate($model->created_at,'php:M d, Y') ?>
+				</span>
 
 			</div>
 
 		</div>
 
+		<!-- RIGHT: ACTION BUTTONS -->
+		<div class="d-flex flex-wrap gap-2">
+
+			<?= Html::a(
+				'<i class="bi bi-arrow-left me-1"></i> Back',
+				['index'],
+				['class' => 'btn btn-outline-secondary']
+			) ?>
+
+			<?= Html::a(
+				'<i class="bi bi-pencil-square me-1"></i> Update',
+				['update','id' => $model->id],
+				['class' => 'btn btn-primary']
+			) ?>
+
+			<?= Html::beginForm(
+				['delete','id' => $model->id],
+				'post',
+				['class' => 'd-inline']
+			) ?>
+
+				<?= Html::submitButton(
+					'<i class="bi bi-trash me-1"></i> Delete',
+					[
+						'class' => 'btn btn-outline-danger',
+						'data' => [
+							'confirm' => 'Are you sure you want to delete this supplier?',
+						],
+					]
+				) ?>
+
+			<?= Html::endForm() ?>
+
+		</div>
+
 	</div>
+
+
     
 	<!-- SUPPLIER PRODUCTS -->
 	<div class="card border-0 shadow-sm">

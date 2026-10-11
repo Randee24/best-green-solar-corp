@@ -103,6 +103,9 @@ class User extends \yii\db\ActiveRecord
 			$this->pin_code
 		);
 	}
-
+	public function getDepartment()
+	{
+		return $this->hasOne(Departments::class, ['id' => 'department_id']);
+	}
 
 }

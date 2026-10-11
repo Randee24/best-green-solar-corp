@@ -1,33 +1,12 @@
 <?php
 
 use yii\helpers\Html;
-use yii\helpers\ArrayHelper;
 use yii\widgets\ActiveForm;
-use backend\models\Products;
-use backend\models\Suppliers;
 
 /** @var yii\web\View $this */
 /** @var app\models\InventoryIn $model */
 
-$products = \yii\helpers\ArrayHelper::map(
-    Products::find()->orderBy(['name' => SORT_ASC])->all(),
-    'id',
-    'name'
-);
-
-$suppliers = \yii\helpers\ArrayHelper::map(
-    Suppliers::find()->orderBy(['name' => SORT_ASC])->all(),
-    'id',
-    'name'
-);
-
-$items = Yii::$app->request->post('items', []);
-
-if (empty($items)) {
-    $items = [
-        ['product_id' => '', 'qty' => 1, 'amount' => '0.00'],
-    ];
-}
+$isUpdate = !$model->isNewRecord;
 ?>
 
 <div class="inventory-in-form">
@@ -124,74 +103,85 @@ if (empty($items)) {
                         </tr>
                     </thead>
 
-                    <tbody id="items-body">
+                    
+					<tbody id="items-body">
 
-                        <?php foreach ($items as $index => $item): ?>
+						<?php foreach ($items as $index => $item): ?>
 
-                            <tr class="item-row">
+							<tr class="item-row">
 
-                                <td>
-                                    <?= Html::dropDownList(
-                                        "items[$index][product_id]",
-                                        $item['product_id'] ?? '',
-                                        $products,
-                                        [
-                                            'class' => 'form-select product-select',
-                                            'prompt' => 'Select product',
-                                            'required' => true,
-                                        ]
-                                    ) ?>
-                                </td>
+								<!-- Product -->
+								<td>
+									<?= Html::hiddenInput(
+										"items[$index][id]",
+										$item['id'] ?? ''
+									) ?>
 
-                                <td>
-                                    <?= Html::input(
-                                        'number',
-                                        "items[$index][qty]",
-                                        $item['qty'] ?? 1,
-                                        [
-                                            'class' => 'form-control qty-input',
-                                            'min' => '0.001',
-                                            'step' => '0.001',
-                                            'required' => true,
-                                        ]
-                                    ) ?>
-                                </td>
+									<?= Html::dropDownList(
+										"items[$index][product_id]",
+										$item['product_id'] ?? '',
+										$products,
+										[
+											'class' => 'form-select product-select',
+											'prompt' => 'Select product',
+											'required' => true,
+										]
+									) ?>
+								</td>
 
-                                <td>
-                                    <?= Html::input(
-                                        'number',
-                                        "items[$index][amount]",
-                                        $item['amount'] ?? '0.00',
-                                        [
-                                            'class' => 'form-control amount-input',
-                                            'min' => '0',
-                                            'step' => '0.01',
-                                            'required' => true,
-                                        ]
-                                    ) ?>
-                                </td>
+								<!-- Quantity -->
+								<td>
+									<?= Html::input(
+										'number',
+										"items[$index][qty]",
+										$item['qty'] ?? 1,
+										[
+											'class' => 'form-control qty-input',
+											'min' => '0.001',
+											'step' => '0.001',
+											'required' => true,
+										]
+									) ?>
+								</td>
 
-                                <td>
-                                    <input type="number"
-                                           class="form-control total-input bg-light"
-                                           value="0.00"
-                                           readonly>
-                                </td>
+								<!-- Unit Cost -->
+								<td>
+									<?= Html::input(
+										'number',
+										"items[$index][amount]",
+										$item['amount'] ?? '0.00',
+										[
+											'class' => 'form-control amount-input',
+											'min' => '0',
+											'step' => '0.01',
+											'required' => true,
+										]
+									) ?>
+								</td>
 
-                                <td class="text-center">
-                                    <button type="button"
-                                            class="btn btn-outline-danger
-                                                   btn-sm remove-item"
-                                            title="Remove product">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </td>
+								<!-- Total Amount -->
+								<td>
+									<input type="number"
+										   class="form-control total-input bg-light"
+										   value="0.00"
+										   readonly>
+								</td>
 
-                            </tr>
+								<!-- Action -->
+								<td class="text-center">
+									<button type="button"
+											class="btn btn-outline-danger btn-sm remove-item"
+											title="Remove product">
+										<i class="bi bi-trash"></i>
+									</button>
+								</td>
 
-                        <?php endforeach; ?>
+							</tr>
 
-                    </tbody>
+						<?php endforeach; ?>
+
+					</tbody>
+
 
                     <tfoot class="table-light">
                         <tr>
