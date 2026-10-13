@@ -54,10 +54,48 @@ $this->params['breadcrumbs'][] = $this->title;
                 'timeout' => 10000,
                 'enablePushState' => true,
             ]); ?>
+			
+				<?php
+
+				$filterValues = Yii::$app->request->get($searchModel->formName(),[]);
+
+				$hasFilters = !empty(array_filter($filterValues,function ($value)
+				{
+					return $value !== '' && $value !== null;
+				}));
+
+				?>
+
+				<div class="card border shadow-sm mb-3 overflow-hidden">
+					<div class="card-header bg-light p-0" id="inventoryInSearchHeading">
+						<button class="btn w-100 text-start border-0 rounded-0 px-3 py-3 d-flex align-items-center justify-content-between" type="button" data-bs-toggle="collapse" data-bs-target="#inventoryInSearchCollapse" aria-expanded="<?= $hasFilters ? 'true' : 'false' ?>" aria-controls="inventoryInSearchCollapse">
+							<span class="fw-semibold">
+								<i class="bi bi-funnel me-2 text-primary"></i>
+								Search Filter
+
+								<?php if ($hasFilters): ?>
+									<span class="badge bg-primary ms-2">Filters Applied</span>
+								<?php endif; ?>
+							</span>
+
+							<i class="bi bi-chevron-down text-secondary"></i>
+						</button>
+					</div>
+
+					<div class="collapse <?= $hasFilters ? 'show' : '' ?>" id="inventoryInSearchCollapse">
+						<div class="card-body border-top">
+							<?= $this->render('_search',[
+								'model' => $searchModel,
+								'supplierOptions' => $supplierOptions,
+								'periodOptions' => $periodOptions,
+								'productOptions' => $productOptions,
+							]) ?>
+						</div>
+					</div>
+				</div>
 
             <?= GridView::widget([
                 'dataProvider' => $dataProvider,
-                'filterModel' => $searchModel,
                 'tableOptions' => [
                     'class' => 'table table-hover table-bordered align-middle',
                 ],
@@ -84,13 +122,9 @@ $this->params['breadcrumbs'][] = $this->title;
                     ],
 
                     [
-                        'attribute' => 'transaction_date',
-                        'label' => 'Date',
-                        'format' => 'date',
-                        'contentOptions' => [
-                            'style' => 'white-space:nowrap;',
+                            'attribute' => 'transaction_date',
+                            'format' => ['date','php:M d, Y'],
                         ],
-                    ],
 
                     [
                         'attribute' => 'supplier_name',
@@ -128,7 +162,7 @@ $this->params['breadcrumbs'][] = $this->title;
                     ],
 
                     [
-                        'label' => 'Products',
+                        'label' => 'Products Count',
                         'value' => function($model)
                         {
                             return count($model->inventoryInItems);
@@ -149,7 +183,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                 $quantity += (float) $item->qty;
                             }
 
-                            return number_format($quantity,3);
+                            return $quantity;
                         },
                         'contentOptions' => [
                             'class' => 'text-end',

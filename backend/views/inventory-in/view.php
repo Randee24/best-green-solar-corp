@@ -159,7 +159,7 @@ $statusClass = match ($model->status)
                 <div class="col-md-2">
                     <div class="text-muted small">Total Quantity</div>
                     <div class="fw-semibold">
-                        <?= number_format($model->getTotalReceivedQty(),3) ?>
+                        <?= number_format($model->getTotalReceivedQty()) ?>
                     </div>
                 </div>
 

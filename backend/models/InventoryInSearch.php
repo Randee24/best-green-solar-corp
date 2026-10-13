@@ -2,23 +2,21 @@
 
 namespace backend\models;
 
+use backend\models\InventoryIns;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
-use backend\models\InventoryIns;
+use yii\db\Query;
 
-/**
- * InventoryInSearch represents the model behind the search form of `app\models\InventoryIns`.
- */
 class InventoryInSearch extends InventoryIns
 {
     public $supplier_name;
-    public $period_name;
 
     public function rules()
     {
         return [
-            [['id','supplier_id','inventory_period_id'],'integer'],
-            [['transaction_date','status','supplier_name','period_name'],'safe'],
+            [['id', 'inventory_period_id'], 'integer'],
+            [['supplier_name', 'status'], 'safe'],
+			[['transaction_date'], 'date', 'format' => 'php:Y-m-d'],
         ];
     }
 
@@ -30,9 +28,7 @@ class InventoryInSearch extends InventoryIns
     public function search($params)
     {
         $query = InventoryIns::find()
-            ->alias('i')
-            ->joinWith(['supplier s','inventoryPeriod p'])
-            ->with(['inventoryInItems.product']);
+            ->alias('inventory_ins');
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
@@ -46,40 +42,53 @@ class InventoryInSearch extends InventoryIns
             ],
         ]);
 
-        $dataProvider->sort->attributes['supplier_name'] = [
-            'asc' => ['s.name' => SORT_ASC],
-            'desc' => ['s.name' => SORT_DESC],
-        ];
-
-        $dataProvider->sort->attributes['period_name'] = [
-            'asc' => ['p.year' => SORT_ASC,'p.month' => SORT_ASC],
-            'desc' => ['p.year' => SORT_DESC,'p.month' => SORT_DESC],
-        ];
-
         $this->load($params);
 
         if (!$this->validate())
         {
+            $query->andWhere('0=1');
+
             return $dataProvider;
         }
 
+        // Reference, Inventory Period and Status
         $query->andFilterWhere([
-            'i.id' => $this->id,
-            'i.supplier_id' => $this->supplier_id,
-            'i.inventory_period_id' => $this->inventory_period_id,
-            'i.transaction_date' => $this->transaction_date,
-            'i.status' => $this->status,
+            'inventory_ins.id' => $this->id,
+            'inventory_ins.inventory_period_id' => $this->inventory_period_id,
+            'inventory_ins.status' => $this->status,
         ]);
 
-        $query->andFilterWhere(['like','s.name',$this->supplier_name]);
-
-        if (!empty($this->period_name))
+        // Supplier name filter
+        if ($this->supplier_name !== null && trim($this->supplier_name) !== '')
         {
-            $query->andWhere(
-                "CONCAT(p.year,'-',LPAD(p.month,2,'0')) LIKE :period",
-                [':period' => '%' . $this->period_name . '%']
+            $query->innerJoin(
+                'suppliers supplier',
+                'supplier.id = inventory_ins.supplier_id'
             );
+
+            $query->andWhere([
+                'like',
+                'supplier.name',
+                trim($this->supplier_name),
+            ]);
         }
+
+       // Transaction date filter
+        if ($this->transaction_date !== null && $this->transaction_date !== '')
+        {
+            $query->andWhere([
+                '>=',
+                'inventory_ins.transaction_date',
+                $this->transaction_date . ' 00:00:00',
+            ]);
+
+            $query->andWhere([
+                '<',
+                'inventory_ins.transaction_date',
+                date('Y-m-d',strtotime($this->transaction_date . ' +1 day')) . ' 00:00:00',
+            ]);
+        }
+
 
         return $dataProvider;
     }

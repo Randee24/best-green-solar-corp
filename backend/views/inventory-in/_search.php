@@ -1,39 +1,71 @@
+
 <?php
 
 use yii\helpers\Html;
-use yii\widgets\ActiveForm;
+use yii\bootstrap5\ActiveForm;
 
-/** @var yii\web\View $this */
-/** @var app\models\InventoryInSearch $model */
-/** @var yii\widgets\ActiveForm $form */
+/** @var backend\models\search\InventoryInsSearch $model */
+/** @var array $periodOptions */
+
 ?>
 
 <div class="inventory-ins-search">
-
     <?php $form = ActiveForm::begin([
         'action' => ['index'],
         'method' => 'get',
     ]); ?>
 
-    <?= $form->field($model, 'id') ?>
+    <div class="row g-3 align-items-end">
+        <div class="col-md-2">
+            <?= $form->field($model,'id')->textInput([
+                'class' => 'form-control',
+                'placeholder' => 'Reference ID',
+                'type' => 'number',
+                'min' => 1,
+            ])->label('Reference') ?>
+        </div>
+		<div class="col-md-2">
+            <?= $form->field($model,'transaction_date')->input('date',[
+                'class' => 'form-control',
+            ])->label('Transaction Date') ?>
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model,'supplier_name')->textInput([
+                'class' => 'form-control',
+                'placeholder' => 'Search Supplier',
+            ])->label('Supplier') ?>
+        </div>
 
-    <?= $form->field($model, 'date_and_time') ?>
+        <div class="col-md-2">
+            <?= $form->field($model,'inventory_period_id')->dropDownList($periodOptions,[
+                'prompt' => 'All Periods',
+                'class' => 'form-select',
+            ])->label('Inventory Period') ?>
+        </div>
+		
+        <div class="col-md-2">
+            <?= $form->field($model,'status')->dropDownList([
+                'draft' => 'Draft',
+                'posted' => 'Posted',
+            ],[
+                'prompt' => 'All Status',
+                'class' => 'form-select',
+            ])->label('Status') ?>
+        </div>
 
-    <?= $form->field($model, 'supplier_id') ?>
+        <div class="col-md-2">
+            <div class="d-flex gap-2 mb-3">
+                <?= Html::submitButton('<i class="bi bi-search"></i> Search',[
+                    'class' => 'btn btn-primary',
+                ]) ?>
 
-    <?= $form->field($model, 'transaction_date') ?>
-
-    <?= $form->field($model, 'status') ?>
-
-    <?php // echo $form->field($model, 'inventory_period_id') ?>
-
-    <?php // echo $form->field($model, 'created_at') ?>
-
-    <div class="form-group">
-        <?= Html::submitButton('Search', ['class' => 'btn btn-primary']) ?>
-        <?= Html::resetButton('Reset', ['class' => 'btn btn-outline-secondary']) ?>
+                <?= Html::a('<i class="bi bi-arrow-clockwise"></i> Reset',['index'],[
+                    'class' => 'btn btn-outline-secondary',
+                    'title' => 'Reset Filters',
+                ]) ?>
+            </div>
+        </div>
     </div>
 
     <?php ActiveForm::end(); ?>
-
 </div>

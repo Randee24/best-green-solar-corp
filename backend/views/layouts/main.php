@@ -143,8 +143,9 @@ AppAsset::register($this);
                 ['label' => '<i class="bi bi-building"></i> <span>Departments</span>', 'url' => ['/department/index']],
                 ['label' => '<i class="bi bi-shield-lock"></i> <span>Roles</span>', 'url' => ['/role/index']],
                 ['label' => '<i class="bi bi-journal-text"></i> <span>Audit Log</span>', 'url' => ['/audit-log/index']],
-                
-                // --- ACCOUNT / EXIT ---
+                ['label' => '<i class="bi bi-file-earmark-text"></i> <span>Pages Management</span>', 'url' => ['/page/index']],
+                ['label' => '<i class="bi bi-shield-lock"></i> <span>Access Management</span>', 'url' => ['/access/index']],
+				// --- ACCOUNT / EXIT ---
                 ['label' => '<hr class="my-2 border-secondary opacity-25 menu-text">', 'encode' => false],
                 [
                     'label' => '<i class="bi bi-power"></i> <span>Logout</span>',

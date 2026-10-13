@@ -80,21 +80,7 @@ $this->params['breadcrumbs'][] = $this->title;
 				['class' => 'btn btn-primary']
 			) ?>
 
-			<?= Html::beginForm(
-				['delete','id' => $model->id],
-				'post',
-				['class' => 'd-inline']
-			) ?>
-
-				<?= Html::submitButton(
-					'<i class="bi bi-trash me-1"></i> Delete',
-					[
-						'class' => 'btn btn-outline-danger',
-						'data' => [
-							'confirm' => 'Are you sure you want to delete this supplier?',
-						],
-					]
-				) ?>
+			
 
 			<?= Html::endForm() ?>
 

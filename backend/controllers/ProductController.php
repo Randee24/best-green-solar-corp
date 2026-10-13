@@ -47,6 +47,7 @@ class ProductController extends Controller
 		return $this->render('index',[
 			'searchModel' => $searchModel,
 			'dataProvider' => $dataProvider,
+			'productTypeOptions' => Products::getProductTypeOptions(),
 		]);
 	}
 

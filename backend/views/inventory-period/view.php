@@ -108,131 +108,174 @@ $periodEnd = date('Y-m-t',strtotime($periodStart));
 
         </div>
     </div>
+	
+	<!-- PERIOD INFORMATION + SUMMARY WIDGETS -->
+    <div class="row g-3 mb-3 align-items-stretch">
 
-    <div class="row g-3 mb-4">
+        <!-- LEFT: PERIOD INFORMATION -->
+        <div class="col-12 col-lg-5">
 
-        <div class="col-md-6 col-xl-3">
-            <div class="card h-100 shadow-sm border-0">
-                <div class="card-body">
-                    <div class="text-muted small mb-2">
-                        <i class="bi bi-box-arrow-in-down me-1"></i>
-                        Inventory IN
+            <div class="card border-0 shadow-sm h-100">
+
+                <div class="card-body p-3">
+
+                    <h6 class="fw-semibold mb-3">
+                        <i class="bi bi-info-circle text-primary me-2"></i>
+                        Period Information
+                    </h6>
+
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                        <span class="text-muted small">Period</span>
+                        <span class="fw-semibold">
+                            <?= Html::encode($this->title) ?>
+                        </span>
                     </div>
 
-                    <h3 class="mb-1">
-						<?= number_format($transactionSummary['in_total']) ?>
-					</h3>
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                        <span class="text-muted small">Period ID</span>
+                        <span class="fw-semibold">
+                            #<?= Html::encode($model->id) ?>
+                        </span>
+                    </div>
 
-					<div class="small text-success">
-						<?= number_format($transactionSummary['in_posted']) ?> Posted
-					</div>
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                        <span class="text-muted small">Status</span>
+
+                        <span class="badge bg-<?= $isClosed ? 'secondary' : 'success' ?> fs-6 align-middle ms-2">
+							<?= Html::encode(ucfirst($model->status)) ?>
+						</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2 gap-2">
+                        <span class="text-muted small">Closed By</span>
+                        <span class="fw-semibold text-end small">
+                            <?= Html::encode($model->getClosedByDisplayName()) ?>
+                        </span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center gap-2">
+                        <span class="text-muted small">Closed At</span>
+                        <span class="fw-semibold small text-end">
+                            <?= $model->closed_at
+                                ? Yii::$app->formatter->asDatetime($model->closed_at)
+                                : '—' ?>
+                        </span>
+                    </div>
+
                 </div>
+
             </div>
+
         </div>
 
-        <div class="col-md-6 col-xl-3">
-            <div class="card h-100 shadow-sm border-0">
-                <div class="card-body">
-                    <div class="text-muted small mb-2">
-                        <i class="bi bi-box-arrow-up me-1"></i>
-                        Inventory OUT
+        <!-- RIGHT: FOUR SUMMARY WIDGETS -->
+        <div class="col-12 col-lg-7">
+
+            <div class="row row-cols-2 g-2 h-100">
+
+                <!-- OPENING -->
+                <div class="col">
+
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body p-3">
+
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-box-seam text-primary"></i>
+                                <span class="text-muted small"> Closing Inventory Value</span>
+                            </div>
+
+                            <h3 class="mb-1">
+								₱<?= number_format((float) $balanceSummary['total_closing_value'],2) ?>
+							</h3>
+
+							<div class="small text-muted">
+								<?= $isClosed ? 'Finalized balance' : 'Not yet finalized' ?>
+							</div>
+
+                        </div>
                     </div>
 
-                    <h3 class="mb-1">
-						<?= number_format($transactionSummary['out_total']) ?>
-					</h3>
-
-					<div class="small text-danger">
-						<?= number_format($transactionSummary['out_posted']) ?> Posted
-					</div>
                 </div>
-            </div>
-        </div>
 
-        <div class="col-md-6 col-xl-3">
-            <div class="card h-100 shadow-sm border-0">
-                <div class="card-body">
-                    <div class="text-muted small mb-2">
-                        <i class="bi bi-box-seam me-1"></i>
-                        Closing Quantity
+                <!-- INVENTORY IN -->
+                <div class="col">
+
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body p-3">
+
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-box-arrow-in-down text-success"></i>
+                                <span class="text-muted small">Inventory IN</span>
+                            </div>
+
+                             <h3 class="mb-1">
+								<?= number_format($transactionSummary['in_total']) ?>
+							</h3>
+
+							<div class="small text-success">
+								<?= number_format($transactionSummary['in_posted']) ?> Posted
+							</div>
+
+                        </div>
                     </div>
 
-                    <h3 class="mb-1">
-                        <?= number_format((float) $balanceSummary['total_closing_qty'],3) ?>
-                    </h3>
-
-                    <div class="small text-muted">
-                        <?= number_format((int) $balanceSummary['product_count']) ?> Products
-                    </div>
                 </div>
-            </div>
-        </div>
 
-        <div class="col-md-6 col-xl-3">
-            <div class="card h-100 shadow-sm border-0">
-                <div class="card-body">
-                    <div class="text-muted small mb-2">
-                        <i class="bi bi-cash-stack me-1"></i>
-                        Closing Inventory Value
+                <!-- INVENTORY OUT -->
+                <div class="col">
+
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body p-3">
+
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-box-arrow-up text-danger"></i>
+                                <span class="text-muted small">Inventory OUT</span>
+                            </div>
+
+                            <h3 class="mb-1">
+								<?= number_format($transactionSummary['out_total']) ?>
+							</h3>
+
+							<div class="small text-danger">
+								<?= number_format($transactionSummary['out_posted']) ?> Posted
+							</div>
+
+                        </div>
                     </div>
 
-                    <h3 class="mb-1">
-                        ₱<?= number_format((float) $balanceSummary['total_closing_value'],2) ?>
-                    </h3>
-
-                    <div class="small text-muted">
-                        <?= $isClosed ? 'Finalized balance' : 'Not yet finalized' ?>
-                    </div>
                 </div>
+
+                <!-- CLOSING -->
+                <div class="col">
+
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body p-3">
+
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-boxes text-primary"></i>
+                                <span class="text-muted small">Closing Stock</span>
+                            </div>
+
+                            <h3 class="mb-1">
+								<?= number_format((float) $balanceSummary['total_closing_qty'],3) ?>
+							</h3>
+
+							<div class="small text-muted">
+								<?= number_format((int) $balanceSummary['product_count']) ?> Products
+							</div>
+
+                        </div>
+                    </div>
+
+                </div>
+
             </div>
+
         </div>
 
     </div>
 
-    <div class="card shadow-sm border-0 mb-4">
-
-        <div class="card-header bg-transparent py-3">
-            <h5 class="mb-0">
-                <i class="bi bi-info-circle me-2"></i>
-                Period Information
-            </h5>
-        </div>
-
-        <div class="card-body">
-
-            <?= DetailView::widget([
-                'model' => $model,
-                'options' => [
-                    'class' => 'table table-bordered table-striped mb-0',
-                ],
-                'attributes' => [
-                    [
-                        'label' => 'Period',
-                        'value' => $this->title,
-                    ],
-                    [
-                        'label' => 'Date Range',
-                        'value' => $periodStart . ' to ' . $periodEnd,
-                    ],
-                    [
-                        'attribute' => 'status',
-                        'value' => ucfirst($model->status),
-                    ],
-                    [
-                        'attribute' => 'closed_at',
-                        'format' => 'datetime',
-                        'visible' => $isClosed && !empty($model->closed_at),
-                    ],
-                    [
-						'label' => 'Closed By',
-						'value' => $model->getClosedByDisplayName(),
-						'visible' => $isClosed && !empty($model->closed_by),
-					],
-                ],
-            ]) ?>
-
-        </div>
-    </div>
+    
 
     <div class="card shadow-sm border-0 mb-4">
 

@@ -49,16 +49,57 @@ $this->params['breadcrumbs'][] = $this->title;
         </div>
 
         <div class="card-body">
+			
+		
+		<?php
+
+		$filterValues = Yii::$app->request->get($searchModel->formName(),[]);
+
+		$hasFilters = !empty(array_filter($filterValues,function ($value)
+		{
+			return $value !== '' && $value !== null;
+		}));
+
+		?>
+
+		<div class="card border shadow-sm mb-3 overflow-hidden">
+			<div class="card-header bg-light p-0" id="productSearchHeading">
+				<button class="btn w-100 text-start border-0 rounded-0 px-3 py-3 d-flex align-items-center justify-content-between" type="button" data-bs-toggle="collapse" data-bs-target="#productSearchCollapse" aria-expanded="<?= $hasFilters ? 'true' : 'false' ?>" aria-controls="productSearchCollapse">
+					<span class="fw-semibold">
+						<i class="bi bi-funnel me-2 text-primary"></i>
+						Search Filters
+
+						<?php if ($hasFilters): ?>
+							<span class="badge bg-primary ms-2">Filters Applied</span>
+						<?php endif; ?>
+					</span>
+
+					<i class="bi bi-chevron-down text-secondary"></i>
+				</button>
+			</div>
+
+			<div class="collapse <?= $hasFilters ? 'show' : '' ?>" id="productSearchCollapse">
+				<div class="card-body border-top">
+					<?= $this->render('_search',[
+						'model' => $searchModel,
+						'productTypeOptions' => $productTypeOptions,
+					]) ?>
+				</div>
+			</div>
+		</div>
+
+
+
 
             <?php Pjax::begin([
                 'id' => 'products-grid',
                 'timeout' => 10000,
                 'enablePushState' => true,
             ]); ?>
-
+		
             <?= GridView::widget([
                 'dataProvider' => $dataProvider,
-                'filterModel' => $searchModel,
+                
                 'tableOptions' => [
                     'class' => 'table table-hover table-bordered align-middle',
                 ],

@@ -32,9 +32,45 @@ $this->params['breadcrumbs'][] = $this->title;
 
         <div class="card-body p-0">
             <div class="table-responsive">
+				
+				<?php
+
+				$filterValues = Yii::$app->request->get($searchModel->formName(),[]);
+
+				$hasFilters = !empty(array_filter($filterValues,function ($value)
+				{
+					return $value !== '' && $value !== null;
+				}));
+
+				?>
+
+				<div class="card border shadow-sm mb-3 overflow-hidden">
+					<div class="card-header bg-light p-0" id="projectSearchHeading">
+						<button class="btn w-100 text-start border-0 rounded-0 px-3 py-3 d-flex align-items-center justify-content-between" type="button" data-bs-toggle="collapse" data-bs-target="#projectSearchCollapse" aria-expanded="<?= $hasFilters ? 'true' : 'false' ?>" aria-controls="projectSearchCollapse">
+							<span class="fw-semibold">
+								<i class="bi bi-funnel me-2 text-primary"></i>
+								Search Filters
+
+								<?php if ($hasFilters): ?>
+									<span class="badge bg-primary ms-2">Filters Applied</span>
+								<?php endif; ?>
+							</span>
+
+							<i class="bi bi-chevron-down text-secondary"></i>
+						</button>
+					</div>
+
+					<div class="collapse <?= $hasFilters ? 'show' : '' ?>" id="projectSearchCollapse">
+						<div class="card-body border-top">
+							<?= $this->render('_search',[
+								'model' => $searchModel,
+							]) ?>
+						</div>
+					</div>
+				</div>
+
                 <?= GridView::widget([
                     'dataProvider' => $dataProvider,
-                    'filterModel' => $searchModel,
                     'tableOptions' => [
                         'class' => 'table table-hover table-striped align-middle mb-0',
                     ],

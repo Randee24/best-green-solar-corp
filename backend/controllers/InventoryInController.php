@@ -36,19 +36,21 @@ class InventoryInController extends Controller
      *
      * @return string
      */
-    public function actionIndex()
+    
+	public function actionIndex()
 	{
 		$searchModel = new InventoryInSearch();
-
-		$dataProvider = $searchModel->search(
-			Yii::$app->request->queryParams
-		);
+		$dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
 		return $this->render('index',[
 			'searchModel' => $searchModel,
 			'dataProvider' => $dataProvider,
+			'supplierOptions' => InventoryIns::getSupplierOptions(),
+			'periodOptions' => InventoryIns::getPeriodOptions(),
+			'productOptions' => InventoryIns::getProductOptions(),
 		]);
 	}
+
 
     /**
      * Displays a single InventoryIns model.

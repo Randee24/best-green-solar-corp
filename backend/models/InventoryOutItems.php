@@ -34,11 +34,11 @@ class InventoryOutItems extends \yii\db\ActiveRecord
     {
         return [
             [['remarks'], 'default', 'value' => null],
-            //[['amount','total_amount'], 'default', 'value' => 0.00],
+            // [['amount','total_amount'], 'default', 'value' => 0.00],
             [['qty'], 'default', 'value' => 0],
             [['inventory_out_id', 'product_id'], 'required'],
             [['inventory_out_id', 'product_id', 'qty'], 'integer'],
-            //[['amount','total_amount'], 'number'],
+            // [['amount','total_amount'], 'number'],
             [['remarks'], 'string'],
             [['created_at'], 'safe'],
         ];

@@ -2,40 +2,32 @@
 
 namespace backend\models;
 
+use backend\models\InventoryOuts;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
-use backend\models\InventoryOuts;
 
-/**
- * InventoryOutSearch represents the model behind the search form of `app\models\InventoryOuts`.
- */
 class InventoryOutSearch extends InventoryOuts
 {
-	public $project_name;
-
-    /**
-     * {@inheritdoc}
-     */
-    public function scenarios()
-    {
-        // bypass scenarios() implementation in the parent class
-        return Model::scenarios();
-    }
+    public $project_name;
 
     public function rules()
     {
         return [
-            [['id','project_id','inventory_period_id'],'integer'],
-            [['transaction_date','status','project_name'],'safe'],
+            [['id', 'inventory_period_id'], 'integer'],
+            [['project_name', 'status'], 'safe'],
+            [['transaction_date'], 'date', 'format' => 'php:Y-m-d'],
         ];
     }
 
+    public function scenarios()
+    {
+        return Model::scenarios();
+    }
 
     public function search($params)
     {
         $query = InventoryOuts::find()
-            ->alias('o')
-            ->joinWith(['project p']);
+            ->alias('inventory_outs');
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
@@ -43,31 +35,58 @@ class InventoryOutSearch extends InventoryOuts
                 'pageSize' => 20,
             ],
             'sort' => [
-                'defaultOrder' => ['id' => SORT_DESC],
+                'defaultOrder' => [
+                    'id' => SORT_DESC,
+                ],
             ],
         ]);
-
-        $dataProvider->sort->attributes['project_name'] = [
-            'asc' => ['p.name' => SORT_ASC],
-            'desc' => ['p.name' => SORT_DESC],
-        ];
 
         $this->load($params);
 
         if (!$this->validate())
         {
+            $query->andWhere('0=1');
+
             return $dataProvider;
         }
 
+        // Reference, Inventory Period and Status
         $query->andFilterWhere([
-            'o.id' => $this->id,
-            'o.project_id' => $this->project_id,
-            'o.inventory_period_id' => $this->inventory_period_id,
-            'o.transaction_date' => $this->transaction_date,
-            'o.status' => $this->status,
+            'inventory_outs.id' => $this->id,
+            'inventory_outs.inventory_period_id' => $this->inventory_period_id,
+            'inventory_outs.status' => $this->status,
         ]);
 
-        $query->andFilterWhere(['like','p.name',$this->project_name]);
+        // Project name filter
+        if ($this->project_name !== null && trim($this->project_name) !== '')
+        {
+            $query->innerJoin(
+                'projects project',
+                'project.id = inventory_outs.project_id'
+            );
+
+            $query->andWhere([
+                'like',
+                'project.name',
+                trim($this->project_name),
+            ]);
+        }
+
+        // Transaction date filter
+        if ($this->transaction_date !== null && $this->transaction_date !== '')
+        {
+            $query->andWhere([
+                '>=',
+                'inventory_outs.transaction_date',
+                $this->transaction_date . ' 00:00:00',
+            ]);
+
+            $query->andWhere([
+                '<',
+                'inventory_outs.transaction_date',
+                date('Y-m-d',strtotime($this->transaction_date . ' +1 day')) . ' 00:00:00',
+            ]);
+        }
 
         return $dataProvider;
     }

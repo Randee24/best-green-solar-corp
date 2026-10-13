@@ -37,19 +37,19 @@ class InventoryOutController extends Controller
      *
      * @return string
      */
-    public function actionIndex()
-    {
-        $searchModel = new InventoryOutSearch();
+    
+	public function actionIndex()
+	{
+		$searchModel = new InventoryOutSearch();
+		$dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
-        $dataProvider = $searchModel->search(
-            Yii::$app->request->queryParams
-        );
+		return $this->render('index',[
+			'searchModel' => $searchModel,
+			'dataProvider' => $dataProvider,
+			'periodOptions' => InventoryOuts::getPeriodOptions(),
+		]);
+	}
 
-        return $this->render('index',[
-            'searchModel' => $searchModel,
-            'dataProvider' => $dataProvider,
-        ]);
-    }
 
     public function actionCreate()
     {

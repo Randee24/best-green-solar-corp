@@ -86,6 +86,42 @@ class InventoryIns extends \yii\db\ActiveRecord
 	 * @param array $rows Product rows submitted by the form.
 	 * @return bool
 	 */
+	 
+	
+	public static function getSupplierOptions(): array
+	{
+		return ArrayHelper::map(
+			Suppliers::find()->orderBy(['name' => SORT_ASC])->all(),
+			'id',
+			'name'
+		);
+	}
+
+	public static function getPeriodOptions(): array
+	{
+		$periods = InventoryPeriods::find()
+			->orderBy(['year' => SORT_DESC, 'month' => SORT_DESC])
+			->all();
+
+		$options = [];
+
+		foreach ($periods as $period)
+		{
+			$options[$period->id] = date('F Y',mktime(0,0,0,(int) $period->month,1,(int) $period->year));
+		}
+
+		return $options;
+	}
+
+	public static function getProductOptions(): array
+	{
+		return ArrayHelper::map(
+			Products::find()->orderBy(['name' => SORT_ASC])->all(),
+			'id',
+			'name'
+		);
+	}
+
 	public function createWithItems(array $rows): bool
 	{
 		if (!$this->isNewRecord) {
@@ -518,29 +554,7 @@ class InventoryIns extends \yii\db\ActiveRecord
 		return $name . ($department !== '' ? ' (' . $department . ')' : '');
 	}
 	
-	public static function getProductOptions(): array
-	{
-		return ArrayHelper::map(
-			Products::find()
-				->orderBy(['name' => SORT_ASC])
-				->asArray()
-				->all(),
-			'id',
-			'name'
-		);
-	}
 	
-	public static function getSupplierOptions(): array
-	{
-		return ArrayHelper::map(
-			Suppliers::find()
-				->orderBy(['name' => SORT_ASC])
-				->asArray()
-				->all(),
-			'id',
-			'name'
-		);
-	}
 	public function getFormItems(?array $postedItems = null): array
 	{
 		if ($postedItems !== null)

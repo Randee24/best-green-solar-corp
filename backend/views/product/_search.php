@@ -1,40 +1,81 @@
+
 <?php
 
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
 
 /** @var yii\web\View $this */
-/** @var app\models\ProductSearch $model */
+/** @var backend\models\search\ProductsSearch $model */
 /** @var yii\widgets\ActiveForm $form */
 ?>
 
 <div class="products-search">
 
-    <?php $form = ActiveForm::begin([
-        'action' => ['index'],
-        'method' => 'get',
-    ]); ?>
+        <?php $form = ActiveForm::begin([
+            'action' => ['index'],
+            'method' => 'get',
+        ]); ?>
+
+        <div class="row g-3 align-items-end">
+
+            <div class="col-md-3">
+                <?= $form->field($model, 'name')
+                    ->textInput([
+                        'class' => 'form-control',
+                        'placeholder' => 'Search Product Name',
+                    ])
+                    ->label('Product Name') ?>
+            </div>
+
+            <div class="col-md-3">
+                <?= $form->field($model, 'description')
+                    ->textInput([
+                        'class' => 'form-control',
+                        'placeholder' => 'Search Description',
+                    ])
+                    ->label('Description') ?>
+            </div>
+
+            <div class="col-md-2">
+                <?= $form->field($model, 'model')
+                    ->textInput([
+                        'class' => 'form-control',
+                        'placeholder' => 'Search Model',
+                    ])
+                    ->label('Model') ?>
+            </div>
+
+            
+			<div class="col-md-2">
+				<?= $form->field($model, 'product_type_id')
+					->dropDownList($productTypeOptions,[
+						'prompt' => 'All Product Types',
+						'class' => 'form-select',
+					])
+					->label('Product Type') ?>
+			</div>
 
 
-    <?= $form->field($model, 'name') ?>
+            <div class="col-md-2">
 
-    <?= $form->field($model, 'description') ?>
+                    <?= Html::submitButton(
+                        '<i class="bi bi-search"></i> Search',
+                        ['class' => 'btn btn-primary']
+                    ) ?>
 
-    <?= $form->field($model, 'model') ?>
+                    <?= Html::a(
+                        '<i class="bi bi-arrow-clockwise"></i>',
+                        ['index'],
+                        [
+                            'class' => 'btn btn-outline-secondary',
+                            'title' => 'Reset Filters',
+                        ]
+                    ) ?>
 
-    <?= $form->field($model, 'product_type_id') ?>
+            </div>
 
-    <?php // echo $form->field($model, 'unit_id') ?>
+        </div>
 
-    <?php // echo $form->field($model, 'installation_price') ?>
-
-    <?php // echo $form->field($model, 'created_at') ?>
-
-    <div class="form-group">
-        <?= Html::submitButton('Search', ['class' => 'btn btn-primary']) ?>
-        <?= Html::resetButton('Reset', ['class' => 'btn btn-outline-secondary']) ?>
-    </div>
-
-    <?php ActiveForm::end(); ?>
+        <?php ActiveForm::end(); ?>
 
 </div>

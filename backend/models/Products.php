@@ -91,6 +91,19 @@ class Products extends \yii\db\ActiveRecord
 	 *
 	 * @return float
 	 */
+	 
+	 
+	public static function getProductTypeOptions(): array
+	{
+		return \yii\helpers\ArrayHelper::map(
+			ProductTypes::find()
+				->orderBy(['name' => SORT_ASC])
+				->all(),
+			'id',
+			'name'
+		);
+	}
+
 	
 	public function getAvailableQty(): float
 	{

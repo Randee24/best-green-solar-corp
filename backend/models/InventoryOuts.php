@@ -128,6 +128,34 @@ class InventoryOuts extends \yii\db\ActiveRecord
         return $this->hasMany( InventoryOutChanges::class,['inventory_out_id' => 'id'])
             ->orderBy(['changed_at' => SORT_DESC,'id' => SORT_DESC]);
     }
+	
+
+	public static function getPeriodOptions(): array
+	{
+		$periods = InventoryPeriods::find()
+			->orderBy([
+				'year' => SORT_DESC,
+				'month' => SORT_DESC,
+			])
+			->all();
+
+		$options = [];
+
+		foreach ($periods as $period)
+		{
+			$options[$period->id] = date('F Y',mktime(
+				0,
+				0,
+				0,
+				(int) $period->month,
+				1,
+				(int) $period->year
+			));
+		}
+
+		return $options;
+	}
+
 
     public function getTotalFifoCost(): string
     {
