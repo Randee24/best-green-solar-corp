@@ -14,7 +14,30 @@
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
--- Dumping data for table best_green_solar_corp.accesses: ~8 rows (approximately)
+
+-- Dumping database structure for best_green_solar_corp
+CREATE DATABASE IF NOT EXISTS `best_green_solar_corp` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci */;
+USE `best_green_solar_corp`;
+
+-- Dumping structure for table best_green_solar_corp.accesses
+CREATE TABLE IF NOT EXISTS `accesses` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `role_id` int(11) NOT NULL,
+  `department_id` int(11) NOT NULL,
+  `page_id` int(11) NOT NULL,
+  `status` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_accesses_role_department_page` (`role_id`,`department_id`,`page_id`),
+  KEY `idx_accesses_department_id` (`department_id`),
+  KEY `idx_accesses_page_id` (`page_id`),
+  KEY `idx_accesses_status` (`status`),
+  CONSTRAINT `fk_accesses_department` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_accesses_page` FOREIGN KEY (`page_id`) REFERENCES `pages` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_accesses_role` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Dumping data for table best_green_solar_corp.accesses: ~10 rows (approximately)
 DELETE FROM `accesses`;
 INSERT INTO `accesses` (`id`, `role_id`, `department_id`, `page_id`, `status`, `created_at`) VALUES
 	(1, 1, 1, 1, 1, '2026-10-13 08:53:09'),
@@ -28,8 +51,29 @@ INSERT INTO `accesses` (`id`, `role_id`, `department_id`, `page_id`, `status`, `
 	(9, 1, 1, 9, 1, '2026-10-13 08:56:10'),
 	(10, 1, 1, 10, 1, '2026-10-13 08:56:20');
 
+-- Dumping structure for table best_green_solar_corp.audit_logs
+CREATE TABLE IF NOT EXISTS `audit_logs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) DEFAULT NULL,
+  `table_name` varchar(255) NOT NULL,
+  `record_id` int(11) NOT NULL,
+  `action` varchar(50) NOT NULL,
+  `old_values` longtext DEFAULT NULL,
+  `new_values` longtext DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
 -- Dumping data for table best_green_solar_corp.audit_logs: ~0 rows (approximately)
 DELETE FROM `audit_logs`;
+
+-- Dumping structure for table best_green_solar_corp.departments
+CREATE TABLE IF NOT EXISTS `departments` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 -- Dumping data for table best_green_solar_corp.departments: ~6 rows (approximately)
 DELETE FROM `departments`;
@@ -41,7 +85,19 @@ INSERT INTO `departments` (`id`, `name`, `created_at`) VALUES
 	(5, 'Sales & Marketing', '2026-10-08 11:15:50'),
 	(6, 'Operations', '2026-10-08 11:16:00');
 
--- Dumping data for table best_green_solar_corp.inventory_in_changes: ~6 rows (approximately)
+-- Dumping structure for table best_green_solar_corp.inventory_in_changes
+CREATE TABLE IF NOT EXISTS `inventory_in_changes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `inventory_in_id` int(11) NOT NULL,
+  `old_value` varchar(255) NOT NULL,
+  `new_value` varchar(255) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `changed_at` datetime NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- Dumping data for table best_green_solar_corp.inventory_in_changes: ~7 rows (approximately)
 DELETE FROM `inventory_in_changes`;
 INSERT INTO `inventory_in_changes` (`id`, `inventory_in_id`, `old_value`, `new_value`, `user_id`, `changed_at`, `created_at`) VALUES
 	(1, 5, 'No item', 'Added item #8: Product #4, Qty 5, Cost 3000', 1, '2026-10-11 05:34:42', '2026-10-11 11:34:42'),
@@ -52,7 +108,24 @@ INSERT INTO `inventory_in_changes` (`id`, `inventory_in_id`, `old_value`, `new_v
 	(6, 8, 'Status: Draft', 'Status: Posted', 1, '2026-10-11 06:46:21', '2026-10-11 12:46:21'),
 	(7, 11, 'Status: Draft', 'Status: Posted', 1, '2026-10-11 06:54:57', '2026-10-11 12:54:57');
 
--- Dumping data for table best_green_solar_corp.inventory_in_items: ~11 rows (approximately)
+-- Dumping structure for table best_green_solar_corp.inventory_in_items
+CREATE TABLE IF NOT EXISTS `inventory_in_items` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `inventory_in_id` int(11) NOT NULL,
+  `product_id` int(11) NOT NULL,
+  `supplier_product_id` int(11) DEFAULT NULL,
+  `amount` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `total_amount` decimal(10,2) NOT NULL,
+  `qty` int(11) NOT NULL DEFAULT 0,
+  `remaining_qty` int(11) NOT NULL,
+  `remarks` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `fk_inventory_in_items_supplier_product` (`supplier_product_id`),
+  CONSTRAINT `fk_inventory_in_items_supplier_product` FOREIGN KEY (`supplier_product_id`) REFERENCES `supplier_products` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- Dumping data for table best_green_solar_corp.inventory_in_items: ~12 rows (approximately)
 DELETE FROM `inventory_in_items`;
 INSERT INTO `inventory_in_items` (`id`, `inventory_in_id`, `product_id`, `supplier_product_id`, `amount`, `total_amount`, `qty`, `remaining_qty`, `remarks`, `created_at`) VALUES
 	(1, 1, 3, 1, 200.00, 400.00, 2, 0, NULL, '2026-10-10 08:21:51'),
@@ -68,6 +141,18 @@ INSERT INTO `inventory_in_items` (`id`, `inventory_in_id`, `product_id`, `suppli
 	(12, 8, 3, 1, 200.00, 600.00, 3, 0, NULL, '2026-10-11 12:43:22'),
 	(15, 11, 3, 1, 1000.00, 4000.00, 4, 0, NULL, '2026-10-11 12:52:31');
 
+-- Dumping structure for table best_green_solar_corp.inventory_ins
+CREATE TABLE IF NOT EXISTS `inventory_ins` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `supplier_id` int(11) NOT NULL,
+  `transaction_date` date NOT NULL,
+  `status` varchar(50) NOT NULL,
+  `inventory_period_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
 -- Dumping data for table best_green_solar_corp.inventory_ins: ~9 rows (approximately)
 DELETE FROM `inventory_ins`;
 INSERT INTO `inventory_ins` (`id`, `supplier_id`, `transaction_date`, `status`, `inventory_period_id`, `user_id`, `created_at`) VALUES
@@ -81,13 +166,41 @@ INSERT INTO `inventory_ins` (`id`, `supplier_id`, `transaction_date`, `status`, 
 	(8, 1, '2026-10-11', 'posted', 1, 1, '2026-10-11 06:43:22'),
 	(11, 1, '2026-10-11', 'posted', 1, 1, '2026-10-11 06:52:31');
 
--- Dumping data for table best_green_solar_corp.inventory_out_changes: ~2 rows (approximately)
+-- Dumping structure for table best_green_solar_corp.inventory_out_changes
+CREATE TABLE IF NOT EXISTS `inventory_out_changes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `inventory_out_id` int(11) NOT NULL,
+  `old_value` varchar(255) NOT NULL,
+  `new_value` varchar(255) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `changed_at` datetime NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- Dumping data for table best_green_solar_corp.inventory_out_changes: ~4 rows (approximately)
 DELETE FROM `inventory_out_changes`;
 INSERT INTO `inventory_out_changes` (`id`, `inventory_out_id`, `old_value`, `new_value`, `user_id`, `changed_at`, `created_at`) VALUES
 	(1, 1, 'Removed: Test product A (Qty: 1)', 'Product: Not included', 1, '2026-10-10 05:09:43', '2026-10-10 11:09:43'),
 	(2, 1, 'Product: Not included', 'Added: GROUNDING LUGS (Qty: 1)', 1, '2026-10-10 05:09:58', '2026-10-10 11:09:58'),
 	(3, 1, 'draft', 'posted', 1, '2026-10-10 05:10:03', '2026-10-10 11:10:03'),
 	(4, 2, 'draft', 'posted', 1, '2026-10-11 04:30:04', '2026-10-11 10:30:04');
+
+-- Dumping structure for table best_green_solar_corp.inventory_out_item_allocations
+CREATE TABLE IF NOT EXISTS `inventory_out_item_allocations` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `inventory_out_item_id` int(11) NOT NULL,
+  `inventory_in_item_id` int(11) NOT NULL,
+  `qty` decimal(12,3) NOT NULL DEFAULT 0.000,
+  `amount` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `total_amount` decimal(14,2) NOT NULL DEFAULT 0.00,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_out_item` (`inventory_out_item_id`),
+  KEY `idx_in_item` (`inventory_in_item_id`),
+  CONSTRAINT `fk_allocation_in_item` FOREIGN KEY (`inventory_in_item_id`) REFERENCES `inventory_in_items` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_allocation_out_item` FOREIGN KEY (`inventory_out_item_id`) REFERENCES `inventory_out_items` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Dumping data for table best_green_solar_corp.inventory_out_item_allocations: ~4 rows (approximately)
 DELETE FROM `inventory_out_item_allocations`;
@@ -97,6 +210,19 @@ INSERT INTO `inventory_out_item_allocations` (`id`, `inventory_out_item_id`, `in
 	(4, 9, 2, 2.000, 1000.00, 2000.00, '2026-10-11 10:30:03'),
 	(5, 10, 4, 30.000, 250.00, 7500.00, '2026-09-18 14:00:00');
 
+-- Dumping structure for table best_green_solar_corp.inventory_out_items
+CREATE TABLE IF NOT EXISTS `inventory_out_items` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `inventory_out_id` int(11) NOT NULL,
+  `product_id` int(11) NOT NULL,
+  `qty` int(11) NOT NULL DEFAULT 0,
+  `remarks` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `amount` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `total_amount` decimal(15,2) NOT NULL DEFAULT 0.00,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
 -- Dumping data for table best_green_solar_corp.inventory_out_items: ~4 rows (approximately)
 DELETE FROM `inventory_out_items`;
 INSERT INTO `inventory_out_items` (`id`, `inventory_out_id`, `product_id`, `qty`, `remarks`, `created_at`, `amount`, `total_amount`) VALUES
@@ -105,12 +231,51 @@ INSERT INTO `inventory_out_items` (`id`, `inventory_out_id`, `product_id`, `qty`
 	(9, 2, 1, 2, 'test', '2026-10-11 10:29:45', 0.00, 0.00),
 	(10, 3, 1, 30, 'September FIFO test transaction', '2026-09-18 14:00:00', 0.00, 0.00);
 
+-- Dumping structure for table best_green_solar_corp.inventory_outs
+CREATE TABLE IF NOT EXISTS `inventory_outs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `date_and_time` datetime NOT NULL,
+  `project_id` int(11) NOT NULL,
+  `transaction_date` date NOT NULL,
+  `status` char(50) NOT NULL,
+  `inventory_period_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_inventory_outs_project` (`project_id`),
+  KEY `idx_inventory_outs_period` (`inventory_period_id`),
+  KEY `idx_inventory_outs_transaction_date` (`transaction_date`),
+  KEY `idx_inventory_outs_status` (`status`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
 -- Dumping data for table best_green_solar_corp.inventory_outs: ~3 rows (approximately)
 DELETE FROM `inventory_outs`;
 INSERT INTO `inventory_outs` (`id`, `date_and_time`, `project_id`, `transaction_date`, `status`, `inventory_period_id`, `user_id`, `created_at`) VALUES
 	(1, '2026-10-10 04:50:13', 1, '2026-10-10', 'posted', 1, 1, '2026-10-10 10:50:13'),
 	(2, '2026-10-11 04:29:45', 1, '2026-10-11', 'posted', 1, 1, '2026-10-11 10:29:45'),
 	(3, '2026-09-18 14:00:00', 1, '2026-09-18', 'posted', 2, 1, '2026-09-18 14:00:00');
+
+-- Dumping structure for table best_green_solar_corp.inventory_period_product_balances
+CREATE TABLE IF NOT EXISTS `inventory_period_product_balances` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `inventory_period_id` int(11) NOT NULL,
+  `product_id` int(11) NOT NULL,
+  `opening_qty` decimal(12,3) NOT NULL DEFAULT 0.000,
+  `in_qty` decimal(12,3) NOT NULL DEFAULT 0.000,
+  `out_qty` decimal(12,3) NOT NULL DEFAULT 0.000,
+  `closing_qty` decimal(12,3) NOT NULL DEFAULT 0.000,
+  `opening_value` decimal(14,2) NOT NULL DEFAULT 0.00,
+  `in_value` decimal(14,2) NOT NULL DEFAULT 0.00,
+  `out_value` decimal(14,2) NOT NULL DEFAULT 0.00,
+  `closing_value` decimal(14,2) NOT NULL DEFAULT 0.00,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_period_product` (`inventory_period_id`,`product_id`),
+  KEY `fk_balance_product` (`product_id`),
+  CONSTRAINT `fk_balance_period` FOREIGN KEY (`inventory_period_id`) REFERENCES `inventory_periods` (`id`),
+  CONSTRAINT `fk_balance_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Dumping data for table best_green_solar_corp.inventory_period_product_balances: ~6 rows (approximately)
 DELETE FROM `inventory_period_product_balances`;
@@ -122,11 +287,36 @@ INSERT INTO `inventory_period_product_balances` (`id`, `inventory_period_id`, `p
 	(11, 2, 5, 0.000, 0.000, 0.000, 0.000, 0.00, 0.00, 0.00, 0.00, '2026-10-11 10:49:11', NULL),
 	(12, 2, 6, 0.000, 0.000, 0.000, 0.000, 0.00, 0.00, 0.00, 0.00, '2026-10-11 10:49:11', NULL);
 
--- Dumping data for table best_green_solar_corp.inventory_periods: ~0 rows (approximately)
+-- Dumping structure for table best_green_solar_corp.inventory_periods
+CREATE TABLE IF NOT EXISTS `inventory_periods` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `year` int(11) NOT NULL,
+  `month` int(11) NOT NULL,
+  `status` enum('open','closed') NOT NULL DEFAULT 'open',
+  `closed_by` int(11) DEFAULT NULL,
+  `closed_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_period` (`year`,`month`),
+  UNIQUE KEY `uq_inventory_period_year_month` (`year`,`month`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Dumping data for table best_green_solar_corp.inventory_periods: ~2 rows (approximately)
 DELETE FROM `inventory_periods`;
 INSERT INTO `inventory_periods` (`id`, `year`, `month`, `status`, `closed_by`, `closed_at`) VALUES
 	(1, 2026, 10, 'open', NULL, '2026-10-10 08:03:22'),
 	(2, 2026, 9, 'closed', 1, '2026-10-11 04:49:11');
+
+-- Dumping structure for table best_green_solar_corp.pages
+CREATE TABLE IF NOT EXISTS `pages` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `model` varchar(150) NOT NULL,
+  `status` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_pages_model` (`model`),
+  KEY `idx_pages_status` (`status`)
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Dumping data for table best_green_solar_corp.pages: ~10 rows (approximately)
 DELETE FROM `pages`;
@@ -142,12 +332,33 @@ INSERT INTO `pages` (`id`, `name`, `model`, `status`, `created_at`) VALUES
 	(9, 'Roles', 'Roles', 1, '2026-10-13 08:21:51'),
 	(10, 'Departments', 'Departments', 1, '2026-10-13 08:21:51');
 
--- Dumping data for table best_green_solar_corp.product_price_changes: ~0 rows (approximately)
+-- Dumping structure for table best_green_solar_corp.product_price_changes
+CREATE TABLE IF NOT EXISTS `product_price_changes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `product_id` int(11) NOT NULL,
+  `supplier_product_id` int(11) NOT NULL,
+  `old_price` varchar(255) NOT NULL,
+  `new_price` varchar(255) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `changed_at` datetime NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- Dumping data for table best_green_solar_corp.product_price_changes: ~1 rows (approximately)
 DELETE FROM `product_price_changes`;
 INSERT INTO `product_price_changes` (`id`, `product_id`, `supplier_product_id`, `old_price`, `new_price`, `user_id`, `changed_at`, `created_at`) VALUES
 	(1, 3, 1, '200.00', '1000.00', 1, '2026-10-11 06:54:57', '2026-10-11 12:54:57');
 
--- Dumping data for table best_green_solar_corp.product_types: ~4 rows (approximately)
+-- Dumping structure for table best_green_solar_corp.product_types
+CREATE TABLE IF NOT EXISTS `product_types` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- Dumping data for table best_green_solar_corp.product_types: ~5 rows (approximately)
 DELETE FROM `product_types`;
 INSERT INTO `product_types` (`id`, `name`, `created_at`) VALUES
 	(1, 'SOLAR PANELS (PV MODULES)', '2026-10-08 11:37:24'),
@@ -156,7 +367,20 @@ INSERT INTO `product_types` (`id`, `name`, `created_at`) VALUES
 	(4, 'SOLAR WATER PUMP', '2026-10-08 11:37:57'),
 	(5, 'ACCESSORIES AND ETC.', '2026-10-08 11:38:04');
 
--- Dumping data for table best_green_solar_corp.products: ~5 rows (approximately)
+-- Dumping structure for table best_green_solar_corp.products
+CREATE TABLE IF NOT EXISTS `products` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `description` varchar(255) NOT NULL,
+  `model` varchar(100) DEFAULT NULL,
+  `product_type_id` int(11) DEFAULT NULL,
+  `unit_id` int(11) DEFAULT NULL,
+  `installation_price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- Dumping data for table best_green_solar_corp.products: ~6 rows (approximately)
 DELETE FROM `products`;
 INSERT INTO `products` (`id`, `name`, `description`, `model`, `product_type_id`, `unit_id`, `installation_price`, `created_at`) VALUES
 	(1, 'OSDA SOLAR PANEL 625 WATTS', 'OSDA SOLAR PANEL 625 WATTS', 'ODA625-33V-MHDRZ', 1, 1, 5000.00, '2026-10-08 11:45:09'),
@@ -166,10 +390,26 @@ INSERT INTO `products` (`id`, `name`, `description`, `model`, `product_type_id`,
 	(5, 'GROUNDING LUGS', 'GROUNDING LUGS', NULL, 5, 4, 70.00, '2026-10-08 11:49:55'),
 	(6, 'Test product A', 'Test product A', 'Model 123', 1, 1, 2000.00, '2026-10-09 10:35:49');
 
--- Dumping data for table best_green_solar_corp.projects: ~0 rows (approximately)
+-- Dumping structure for table best_green_solar_corp.projects
+CREATE TABLE IF NOT EXISTS `projects` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- Dumping data for table best_green_solar_corp.projects: ~1 rows (approximately)
 DELETE FROM `projects`;
 INSERT INTO `projects` (`id`, `name`, `created_at`) VALUES
 	(1, 'Test Project', '2026-10-09 10:45:51');
+
+-- Dumping structure for table best_green_solar_corp.roles
+CREATE TABLE IF NOT EXISTS `roles` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 -- Dumping data for table best_green_solar_corp.roles: ~4 rows (approximately)
 DELETE FROM `roles`;
@@ -178,6 +418,18 @@ INSERT INTO `roles` (`id`, `name`, `created_at`) VALUES
 	(2, 'Manager', '2026-10-08 11:13:53'),
 	(3, 'Employee', '2026-10-08 11:14:15'),
 	(4, 'Viewer ', '2026-10-08 11:14:32');
+
+-- Dumping structure for table best_green_solar_corp.supplier_products
+CREATE TABLE IF NOT EXISTS `supplier_products` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `supplier_id` int(11) NOT NULL,
+  `product_id` int(11) NOT NULL,
+  `supplier_price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `supplier_product_code` varchar(100) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_supplier_product` (`supplier_id`,`product_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 -- Dumping data for table best_green_solar_corp.supplier_products: ~8 rows (approximately)
 DELETE FROM `supplier_products`;
@@ -191,7 +443,15 @@ INSERT INTO `supplier_products` (`id`, `supplier_id`, `product_id`, `supplier_pr
 	(7, 6, 5, 200.00, NULL, '2026-10-11 11:51:18'),
 	(8, 6, 3, 4000.00, NULL, '2026-10-11 11:51:33');
 
--- Dumping data for table best_green_solar_corp.suppliers: ~6 rows (approximately)
+-- Dumping structure for table best_green_solar_corp.suppliers
+CREATE TABLE IF NOT EXISTS `suppliers` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- Dumping data for table best_green_solar_corp.suppliers: ~8 rows (approximately)
 DELETE FROM `suppliers`;
 INSERT INTO `suppliers` (`id`, `name`, `created_at`) VALUES
 	(1, 'A.S.A.-R.E', '2026-10-08 11:43:50'),
@@ -203,7 +463,15 @@ INSERT INTO `suppliers` (`id`, `name`, `created_at`) VALUES
 	(7, 'SHOPEE', '2026-10-08 11:44:28'),
 	(8, 'Test Supplier', '2026-10-09 10:40:50');
 
--- Dumping data for table best_green_solar_corp.units: ~8 rows (approximately)
+-- Dumping structure for table best_green_solar_corp.units
+CREATE TABLE IF NOT EXISTS `units` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- Dumping data for table best_green_solar_corp.units: ~9 rows (approximately)
 DELETE FROM `units`;
 INSERT INTO `units` (`id`, `name`, `created_at`) VALUES
 	(1, 'PANEL', '2026-10-08 11:38:29'),
@@ -216,7 +484,30 @@ INSERT INTO `units` (`id`, `name`, `created_at`) VALUES
 	(8, 'TUBE(s)', '2026-10-08 11:39:37'),
 	(9, 'BAG(s)\r\n', '2026-10-08 11:39:50');
 
--- Dumping data for table best_green_solar_corp.user: ~0 rows (approximately)
+-- Dumping structure for table best_green_solar_corp.user
+CREATE TABLE IF NOT EXISTS `user` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `first_name` varchar(50) NOT NULL,
+  `last_name` varchar(50) NOT NULL,
+  `pin_code` varchar(255) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `role_id` int(11) NOT NULL,
+  `department_id` int(11) NOT NULL,
+  `username` varchar(255) NOT NULL,
+  `auth_key` varchar(32) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `password_reset_token` varchar(255) DEFAULT NULL,
+  `status` smallint(6) NOT NULL DEFAULT 10,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `verification_token` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`),
+  UNIQUE KEY `email` (`email`),
+  UNIQUE KEY `password_reset_token` (`password_reset_token`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- Dumping data for table best_green_solar_corp.user: ~1 rows (approximately)
 DELETE FROM `user`;
 INSERT INTO `user` (`id`, `first_name`, `last_name`, `pin_code`, `email`, `role_id`, `department_id`, `username`, `auth_key`, `password_hash`, `password_reset_token`, `status`, `created_at`, `updated_at`, `verification_token`) VALUES
 	(1, 'Super', 'Admin', '$2y$13$n/rZfIfPGqVQUwok3vr41Oyk7m3A/UvLU5Eh9oDJs0ZkvV6LStEQK', 'admin@solar.local', 1, 1, 'admin', 'Yii2DefaultAuthKey1234567890abcd', '$2y$13$QyRaSGGJgLWR2NqWfeyT.uhnoY/5EwUXICloXYWdhjU/FGyhYfwXy', NULL, 10, '0000-00-00 00:00:00', '0000-00-00 00:00:00', NULL);
